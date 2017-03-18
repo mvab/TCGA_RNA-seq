@@ -7,6 +7,7 @@ library(plyr)
 library(edgeR)
 
 library(ggplot2)
+library(RColorBrewer)
 
 library(limma)
 library(sva)
@@ -17,10 +18,10 @@ setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts")
 dataSE<-get(load("brcaExp_PreprocessedData_wo_batch_updatedSE_subtypes.rda"))
 samplesMatrix<-get(load("brcaExp_PreprocessedData_wo_batch_sampleMatrix_subtypes.rda"))
 
+
 #femaly only T/N data upload
 dataSE<-get(load("brcaExp_PreprocessedData_wo_batch_updatedSE_allFemale.rda"))
 samplesMatrix<-get(load("brcaExp_PreprocessedData_wo_batch_sampleMatrix_allFemale.rda"))
-
 
 ########## exploration of different matrices : DO NOT RUN for standard case ########
 
@@ -136,9 +137,9 @@ addPAM50removePairedCancer<-function(samples.matrix){
   # concatnate barcodes to remove 
   
   #join NA and paired cancer samples
-  to_remove <- unique(sort(c(as.character(no_diag), as.character(paired)))) 
+  # <- unique(sort(c(as.character(no_diag), as.character(paired)))) 
   # OTHER OPTION dont remove paired
-  #to_remove <- unique(sort(as.character(no_diag)))
+  to_remove <- unique(sort(as.character(no_diag)))
   print(length(to_remove))
                         
   # remove samples with no subdtype label and paired tumor sample from dataframe, subtype vector and ID-information.
@@ -155,9 +156,33 @@ addPAM50removePairedCancer<-function(samples.matrix){
   samples.matrixPAM50_NP<-PAMNPout$samples.matrix #515/1192
   sampleToremoveSE <- PAMNPout$samplesToremove
   
-  # if used addBRCAReceptorStatus DO THIS:
+  # if used addPAM50removePairedCancer DO THIS:
   newdataSE<- dataSE[,!colnames(newdataSE) %in% sampleToremoveSE]
-  dim(newdataSE) #7449x515
+  dim(newdataSE) #7449x515 or 579 if include paired
+
+  
+  ######## part for seeing the difference between paired/nonpaired samples ######
+  dataWpaired<-newdataSE
+  dataWOpaired<-newdataSE
+  dataW<-colnames(dataWpaired)
+  dataWO<-colnames(dataWOpaired)
+  
+  r=0
+  pairedS <- vector(mode="character", length=0)
+  for (i in 1:length(dataW)){
+    if (dataW[i] %in% dataWO){
+      #print ("yes")
+    } else{
+      r=r+1
+      print (dataW[i])
+      pairedS[r]<-dataW[i]
+    }}
+  length(pairedS)
+  cancersSE<-dataSE[, pairedS]
+  cancerSEMat<-samples.matrixPAM50_NP[samples.matrixPAM50_NP$barcode %in% pairedS,]
+  
+  
+  
   
   colnames(samples.matrixPAM50_NP)
 
@@ -312,7 +337,7 @@ qplot(data=as.data.frame(pca$x), x=PC1, y=PC4, geom=c("point"), color=samplesMat
 #true diesease status
 qplot(data=as.data.frame(pca$x), x=PC1, y=PC2, geom=c("point"), color=samples.matrixPAM50_NP$true_status)
 
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC3,col=samples.matrixPAM50_NP$true_status, shape =samples.matrixPAM50_NP$tumourType))+
+ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrixPAM50_NP$true_status))+ #, shape =samples.matrixPAM50_NP$tumourType
   geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
   scale_colour_brewer(palette = "Set2")+ #your colors here
   theme_classic()+
@@ -344,6 +369,109 @@ ggplot(p, aes(x=true_status, y=score, fill=true_status)) +
   scale_fill_brewer(palette="Set2")
 
 
+##### heatmaps
+
+# Normalize without log
+dgeH <- DGEList(newdataSE)
+dgeH <- calcNormFactors(object=dgeH, method="TMM")
+EM_nolog <- cpm(x=dgeH, log=FALSE)
+
+# Calculate distance with manhattan
+dm <- dist(t(scale(EM_nolog)), method="manhattan")
+
+# Calculate eucliedan distances
+distmat <- dist(t(EM))
+cormat <- cor(EM)
+
+corrplot::corrplot(corr=cormat, method="ellipse", diag=FALSE, order="AOE")
+
+pheatmap::pheatmap(mat = as.matrix(dm), color = brewer.pal(name = "RdPu", n = 9),
+                   clustering_distance_rows = dm, clustering_distance_cols = dm,
+                   #annotation_col=design,
+                   cluster_cols = TRUE, cluster_rows = FALSE, 
+                   show_rownames = FALSE,show_colnames = FALSE)
+
+
+
+#now plot using correlation instead of distance, and then annotation by both
+#condition and PC-scores of the first 3 PCs. 
+#Here we could also have highlighted the result of a clustering analysis.
+
+#Let's first quickly rescale correlations to distances:
+cor_as_dist <- as.dist((1-cormat) / 2) # rescale correlations to 01 range distances 
+
+
+###### classes setup #####
+
+#get only interesting cols
+names(samples.matrixPAM50_NP)
+design<-subset(samples.matrixPAM50_NP[,c('tumourType','true_status')])#, 'tss'
+row.names(design)<-samples.matrixPAM50_NP$barcode
+
+#recorder annotations
+design$true_status = factor(design$true_status, levels = c("Basal-like", "HER2-enriched", "Luminal A", "Luminal B", "Normal-like", "normal"))
+design$tumourType = factor(design$tumourType, levels = c("type1", "type2"))
+true_statusCol= c( "turquoise4", "darkorange2", "slateblue2", "palevioletred2", "gold2", "olivedrab3")
+tumourTypCol = c( "orange2","royalblue4")
+names(true_statusCol)<-levels(design$true_status)
+names(tumourTypCol)<-levels(design$tumourType)
+
+
+annColour <-list(
+  true_status=true_statusCol,
+  tumourType=tumourTypCol
+)
+######
+
+
+# heatmap of the correlation matrix 
+pheatmap::pheatmap(mat = t(cormat), color = brewer.pal(name = "YlGnBu", n = 9), 
+                   clustering_distance_rows = cor_as_dist, clustering_distance_cols = cor_as_dist, 
+                   annotation_col=design,
+                   annotation_colors = annColour,
+                   cluster_cols = TRUE, cluster_rows = FALSE,
+                   show_rownames = FALSE, show_colnames = FALSE)
+
+
+pheatmap::pheatmap(mat=as.matrix(distmat), color=brewer.pal(name="YlOrRd", n=9), 
+                   clustering_distance_rows=distmat, clustering_distance_cols=distmat,
+                   annotation_row=design,
+                   cluster_cols = FALSE, cluster_rows = TRUE, 
+                   show_rownames = FALSE,show_colnames = FALSE)
+
+
+#Heatmap of large datasets
+
+#To avoid overplotting, pheatmap has a feature for aggregating rows prior to 
+#plotting using k-means, and then clustering the k centers instead.
+
+#Using this feature we can create heatmap of even very big datasets.
+#However, the resulting plot will depend heavily of the choice of k.
+#When plotting actual expression values, it is often useful to scale the dendrogram, 
+#so we do not primarily see differences in expression level, but rather differences
+#in expression patterns.
+
+
+
+EM.t <- cpm(x=dge, log=TRUE)
+
+design2<-design
+rownames(design2) <- colnames(EM)
+
+pheatmap::pheatmap(mat = EM, kmeans_k = 50, annotation_col= design, annotation_colors = annColour,
+                   scale = "column", gp = gpar(fill = "red"),
+                   cluster_cols = TRUE, cluster_rows = TRUE, 
+                   show_rownames = FALSE,show_colnames = FALSE)
+
+EM.t<-t(EM)
+dim(EM.t)
+rownames()
+
+
+pheatmap::pheatmap(mat = EM.t, kmeans_k = 100, #annotation_col= design2, 
+                   scale = "row", gp = gpar(fill = "red"),
+                   cluster_cols = TRUE, cluster_rows = TRUE, 
+                   show_rownames = FALSE,show_colnames = TRUE)
 
 ################## EDA for subtypes ###################
 
