@@ -10,20 +10,51 @@ library(ggplot2)
 library(RColorBrewer)
 
 library(limma)
-library(sva)
 
-setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts")
+suppressMessages(library(magrittr))
+suppressMessages(library(tidyr))
+suppressMessages(library(dplyr))
+
+
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data")
 
 ## subtype data upload
 dataSE<-get(load("brcaExp_PreprocessedData_wo_batch_updatedSE_subtypes.rda"))
-samplesMatrix<-get(load("brcaExp_PreprocessedData_wo_batch_sampleMatrix_subtypes.rda"))
-
+samples.matrix<-get(load("brcaExp_PreprocessedData_wo_batch_sampleMatrix_subtypes.rda"))
+dim(samples.matrix)
 
 #femaly only T/N data upload
 dataSE<-get(load("brcaExp_PreprocessedData_wo_batch_updatedSE_allFemale.rda"))
-samplesMatrix<-get(load("brcaExp_PreprocessedData_wo_batch_sampleMatrix_allFemale.rda"))
+samples.matrixA<-get(load("brcaExp_PreprocessedData_wo_batch_sampleMatrix_allFemale.rda"))
+dim(samples.matrixA)
+
+
+## most recent all types and stages data upload
+dataSE<-get(load("brcaExp_PreprocessedData_wo_batch_updatedSE_allTypes_allStages_Female.rda"))
+samples.matrix<-get(load("brcaExp_PreprocessedData_wo_batch_sampleMatrix_allTypes_allStages_Female.rda"))
+dim(samples.matrix)
+
+
+
 
 ########## exploration of different matrices : DO NOT RUN for standard case ########
+
+addClinData<-function(sample.matrix){
+  
+  clindata<-get(load("clinData_prepared.rda"))
+  samples.matrix_clinincal <- merge(samples.matrix, clindata, by="patient", all.x=TRUE) 
+  #samples.matrix_clinincal <- samples.matrix_clinincal[order(samples.matrix_clinincal$myorder), ]
+  
+  return(samples.matrix_clinincal)
+}
+
+# only do this if want to add clinical data
+samples.matrix<-addClinData(samples.matrix)
+dim(samples.matrix)
+head(samples.matrix)
+dataSE<- dataSE[,c(samples.matrix$barcode)]
+dim(dataSE)
+
 
 addOnlyTopTSS <- function(samples.matrix){
   
@@ -36,10 +67,10 @@ addOnlyTopTSS <- function(samples.matrix){
   
   return (samples.matrix)
 }   
-
-  samples.matrixTSS<-addOnlyTopTSS(samplesMatrix)
-  dim(samples.matrixTSS)
   # if used addOnlyTopTSS DO THIS:
+  samples.matrixTSS<-addOnlyTopTSS(samples.matrix)
+  dim(samples.matrixTSS)
+
   newdataSE<- dataSE[,c(samples.matrixTSS$barcode)]
   dim(newdataSE)
 
@@ -109,7 +140,7 @@ addBRCAReceptorStatus <- function(samples.matrix){
     return (complete_cases_receptors)
 }
 
-  samples.matrixRecep<-addBRCAReceptorStatus(samplesMatrix)
+  samples.matrixRecep<-addBRCAReceptorStatus(samples.matrix)
   # if used addBRCAReceptorStatus DO THIS:
   newdataSE<- dataSE[,c(samples.matrixRecep$barcode)]
   dim(newdataSE)
@@ -137,191 +168,36 @@ addPAM50removePairedCancer<-function(samples.matrix){
   # concatnate barcodes to remove 
   
   #join NA and paired cancer samples
-  # <- unique(sort(c(as.character(no_diag), as.character(paired)))) 
+  to_remove <- unique(sort(c(as.character(no_diag), as.character(paired)))) 
   # OTHER OPTION dont remove paired
-  to_remove <- unique(sort(as.character(no_diag)))
-  print(length(to_remove))
+  #to_remove <- unique(sort(as.character(no_diag)))
+  print(paste0("removed ", length(to_remove), " samples"))
                         
   # remove samples with no subdtype label and paired tumor sample from dataframe, subtype vector and ID-information.
   samples.matrix <- samples.matrix[!samples.matrix$barcode %in% to_remove, ]    
   subdiagnosis <- subdiagnosis[!subdiagnosis$barcode %in% to_remove, ]
   
   # make normal samples from pairs "normal" while retaining info on subtype.
-  subdiagnosis$true_status <- ifelse(subdiagnosis$condition == "normal", "normal", as.character(subdiagnosis$PAM50.mRNA))
+  subdiagnosis$PAM50 <- ifelse(subdiagnosis$condition == "normal", "normal", as.character(subdiagnosis$PAM50.mRNA))
   
   return(list(samples.matrix=subdiagnosis, samplesToremove=to_remove))
 }  
 
-  PAMNPout<-addPAM50removePairedCancer(samplesMatrix)
-  samples.matrixPAM50_NP<-PAMNPout$samples.matrix #515/1192
-  sampleToremoveSE <- PAMNPout$samplesToremove
-  
-  # if used addPAM50removePairedCancer DO THIS:
-  newdataSE<- dataSE[,!colnames(newdataSE) %in% sampleToremoveSE]
-  dim(newdataSE) #7449x515 or 579 if include paired
+
+# if used addPAM50removePairedCancer DO THIS:
+PAMNPout<-addPAM50removePairedCancer(samples.matrix)
+samples.matrix<-PAMNPout$samples.matrix #515/1192
+dim(samples.matrix)
+sampleToremoveSE <- PAMNPout$samplesToremove
+newdataSE<- dataSE[,!colnames(dataSE) %in% sampleToremoveSE]
+dim(newdataSE) #7449x515 or 579 if include paired
 
   
-  ######## part for seeing the difference between paired/nonpaired samples ######
-  dataWpaired<-newdataSE
-  dataWOpaired<-newdataSE
-  dataW<-colnames(dataWpaired)
-  dataWO<-colnames(dataWOpaired)
-  
-  r=0
-  pairedS <- vector(mode="character", length=0)
-  for (i in 1:length(dataW)){
-    if (dataW[i] %in% dataWO){
-      #print ("yes")
-    } else{
-      r=r+1
-      print (dataW[i])
-      pairedS[r]<-dataW[i]
-    }}
-  length(pairedS)
-  cancersSE<-dataSE[, pairedS]
-  cancerSEMat<-samples.matrixPAM50_NP[samples.matrixPAM50_NP$barcode %in% pairedS,]
-  
-  
-  
-  
-  colnames(samples.matrixPAM50_NP)
 
-
-############################################################
- 
-
-  
-  # -----------------------------------------------------------------------------------------------------------------------------
-  # DIFFERENTIAL EXPRESSION ANALYSIS - EDGER
-  # -----------------------------------------------------------------------------------------------------------------------------
-  
-  
-  # edgeR object
-  y <- DGEList(counts=newdataSE)
-  
-  
-  # model matrix info
-  y$samples$batch <- as.factor(as.integer(as.factor(as.character(samples.matrixPAM50_NP$plate))))
-  y$samples$condition <- as.factor(samples.matrixPAM50_NP$condition)
-  y$samples$true_status <- as.factor(samples.matrixPAM50_NP$true_status)
-  y$samples$participant <- as.factor(as.integer(as.factor(samples.matrixPAM50_NP$participant))) 
-  
-  
-  # correct for library size
-  y <- calcNormFactors(y)
-  plotMDS(y)
-  
-  # relevel data
-  y$samples$true_status = relevel(y$samples$true_status, ref="normal")
-  
-  # design matrix - IMPORTANT, model on subtype and batch
-  design.mat <- model.matrix(~true_status+batch, data=y$samples)
-  
-  # estimate dispersion
-  y <- estimateDisp(y,design.mat)
-  
-  
-  # fit overdispersed poisson model
-  my.fit <- glmFit(y, design.mat)
-  
-  # Performing likelihood ratio tests.
-  N_BL_coef <- glmLRT(my.fit, coef = 2)
-  N_H_coef <- glmLRT(my.fit, coef = 3)
-  N_A_coef <- glmLRT(my.fit, coef = 4)
-  N_B_coef <- glmLRT(my.fit, coef = 5)
-  N_NL_coef <- glmLRT(my.fit, coef = 6)
-  BL_H_coef <- glmLRT(my.fit, contrast = c(0,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
-  BL_A_coef <- glmLRT(my.fit, contrast = c(0,-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
-  BL_B_coef <- glmLRT(my.fit, contrast = c(0,-1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
-  BL_NL_coef <- glmLRT(my.fit, contrast = c(0,-1,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
-  H_A_coef <- glmLRT(my.fit, contrast = c(0,0,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
-  H_B_coef <- glmLRT(my.fit, contrast = c(0,0,-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
-  H_NL_coef <- glmLRT(my.fit, contrast = c(0,0,-1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
-  A_B_coef <- glmLRT(my.fit, contrast = c(0,0,0,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
-  A_NL_coef <- glmLRT(my.fit, contrast = c(0,0,0,-1,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
-  B_NL_coef <- glmLRT(my.fit, contrast = c(0,0,0,0,-1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0))
-  
-  # -----------------------------------------------------------------------------------------------------------------------------
-  DE_edgeR <- function(my.lrt, my.data, coLFC, coFDR) {
-    my.tags <- topTags(my.lrt, n=nrow(my.data$counts))
-    my.tags <- my.tags$table
     
-    index.up <- which(my.tags$logFC >= coLFC & my.tags$FDR < coFDR)
-    index.down <- which(my.tags$logFC <= -coLFC & my.tags$FDR < coFDR)
-    direction <- c()
-    direction[index.up] <- "up"
-    direction[index.down] <- "down"
-    direction[!(1:nrow(my.tags) %in% union(index.up,index.down))] <- "no DE"
-    my.tags <- cbind(my.tags,direction)
     
-
-    return(my.tags)
-  }
-  
-  # Filter for significance - set log fold change and fdr cutoff
-  N_BL_E <- DE_edgeR(N_BL_coef, y, 5, 0.001)
-  N_H_E <- DE_edgeR(N_H_coef, y, 5, 0.001)
-  N_A_E <- DE_edgeR(N_A_coef, y, 5, 0.001)
-  N_B_E <- DE_edgeR(N_B_coef, y, 5, 0.001)
-  N_NL_E <- DE_edgeR(N_NL_coef, y, 2, 0.001)
-  BL_H_E <- DE_edgeR(BL_H_coef, y, 5, 0.001)
-  BL_A_E <- DE_edgeR(BL_A_coef, y, 5, 0.001)
-  BL_B_E <- DE_edgeR(BL_B_coef, y, 5, 0.001)
-  BL_NL_E <- DE_edgeR(BL_NL_coef, y, 5, 0.001)
-  H_A_E <- DE_edgeR(H_A_coef, y, 1, 0.05)
-  H_B_E <- DE_edgeR(H_B_coef, y, 1, 0.05)
-  H_NL_E <- DE_edgeR(H_NL_coef, y, 5, 0.001)
-  A_B_E <- DE_edgeR(A_B_coef, y, 1, 0.05)
-  A_NL_E <- DE_edgeR(A_NL_coef, y, 5, 0.001)
-  B_NL_E <- DE_edgeR(B_NL_coef, y, 5, 0.001)
-  
-  
-  
-  # -----------------------------------------------------------------------------------------------------------------------------
-  # VISUALIZATION OF EDGER RESULTS
-  # -----------------------------------------------------------------------------------------------------------------------------
-  
-  
-  
-  # Get all genes #####THIS HAS TO BE FIXED!
-  all_E <- unique(sort(c(as.character(N_NL_E[[1]]$up), as.character(N_NL_E[[2]]$down),
-                         as.character(N_BL_E[[1]]$up), as.character(N_BL_E[[2]]$down),
-                         as.character(N_A_E[[1]]$up), as.character(N_A_E[[2]]$down),
-                         as.character(N_B_E[[1]]$up), as.character(N_B_E[[2]]$down),
-                         as.character(N_H_E[[1]]$up), as.character(N_H_E[[2]]$down),
-                         as.character(NL_BL_E[[1]]$up), as.character(NL_BL_E[[2]]$down),
-                         as.character(NL_A_E[[1]]$up), as.character(NL_A_E[[2]]$down),
-                         as.character(NL_B_E[[1]]$up), as.character(NL_B_E[[2]]$down),
-                         as.character(NL_H_E[[1]]$up), as.character(NL_H_E[[2]]$down),
-                         as.character(BL_A_E[[1]]$up), as.character(BL_A_E[[2]]$down), 
-                         as.character(BL_B_E[[1]]$up), as.character(BL_B_E[[2]]$down), 
-                         as.character(BL_H_E[[1]]$up), as.character(BL_H_E[[2]]$down),
-                         as.character(A_B_E[[1]]$up), as.character(A_B_E[[2]]$down),
-                         as.character(A_H_E[[1]]$up), as.character(A_H_E[[2]]$down),
-                         as.character(B_H_E[[1]]$up), as.character(B_H_E[[2]]$down))))
-  
-  
-  # Get expression values
-  all_E <- samples.matrixPAM50_NP[rownames(samples.matrixPAM50_NP) %in% all_E, ]
-  
-  write.table(all_E, paste0("BRCA_DE_EdgeR.txt"), sp = "\t", quote = FALSE)
-  
-  # Scale expression values for plotting
-  all_log_E <- log2(all_E+1)
-  all_scaled_E <- scale(all_log_E, center = TRUE, scale = FALSE)
-  
-  
-  # Heatmap
-  my.col <- get_colors(subdiagnosis$true_status)
-  heatmap.plus(as.matrix(all_scaled_E), Rowv=NULL, 
-               hclustfun=function(d) hclust(d, method="ward.D2"), trace="none", labRow="",
-               labCol=subdiagnosis$true_status, ColSideColors=my.col, margins = c(14,8), cexCol=0.4)
-  
-  
-  
-  
-
-###################### EDA for T/N  #########################
+###################### EDA for (full) dataset #########################
+dim(newdataSE)    
 dge <- DGEList(newdataSE)
 dge <- calcNormFactors(object=dge, method="TMM")
 EM <- cpm(x=dge, log=TRUE)
@@ -332,24 +208,55 @@ pca <- prcomp(x=t(EM), scale=TRUE, center=TRUE)
 # Inspect components
 summary(pca)
 #type                               
-qplot(data=as.data.frame(pca$x), x=PC1, y=PC4, geom=c("point"), color=samplesMatrix$condition)
+qplot(data=as.data.frame(pca$x), x=PC1, y=PC3, geom=c("point"), color=samples.matrix$condition)
 
-#true diesease status
-qplot(data=as.data.frame(pca$x), x=PC1, y=PC2, geom=c("point"), color=samples.matrixPAM50_NP$true_status)
-
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrixPAM50_NP$true_status))+ #, shape =samples.matrixPAM50_NP$tumourType
+#PAM50 status
+ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$PAM50))+ #, shape =samples.matrix$tumourType
   geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
   scale_colour_brewer(palette = "Set2")+ #your colors here
   theme_classic()+
   theme(legend.position="bottom")
+
+# tumour types
+ggplot(data=as.data.frame(pca$x),aes(x=PC4,y=PC2,col=samples.matrix$tumourTypes))+ #, shape =samples.matrix$tumourType
+  geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
+  scale_colour_brewer(palette = "Set2")+ #your colors here
+  theme_classic()+
+  theme(legend.position="bottom")
+
+# tumour stages
+ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC3,col=samples.matrix$tumourStages))+ #, shape =samples.matrix$tumourType
+  geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
+  scale_colour_brewer(palette = "Set2")+ #your colors here
+  theme_classic()+
+  theme(legend.position="bottom")
+
+#age group
+ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$ageGroup))+ #, shape =samples.matrix$tumourType
+  geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
+  scale_colour_brewer(palette = "Set2")+ #your colors here
+  theme_classic()+
+  theme(legend.position="bottom")
+
+#year dignosed
+ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC3,col=samples.matrix$yearGroup))+ #, shape =samples.matrix$tumourType
+  geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
+  scale_colour_brewer(palette = "Set2")+ #your colors here
+  theme_classic()+
+  theme(legend.position="bottom")
+
+#race
+ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC3,col=samples.matrix$race))+ #, shape =samples.matrix$tumourType
+  geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
+  scale_colour_brewer(palette = "Set2")+ #your colors here
+  theme_classic()+
+  theme(legend.position="bottom")
+
+
 #### exploring PCs
 
-suppressMessages(library(magrittr))
-suppressMessages(library(tidyr))
-suppressMessages(library(dplyr))
-
 # T/N
-d <- data.frame(samplesMatrix, pca$x)
+d <- data.frame(samples.matrix, pca$x)
 p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:9))
 
 ggplot(p, aes(x=condition, y=score, fill=condition)) + 
@@ -359,120 +266,70 @@ ggplot(p, aes(x=condition, y=score, fill=condition)) +
   scale_fill_brewer(palette="Set2")
 
 #PAM50
-d <- data.frame(samples.matrixPAM50_NP, pca$x)
+d <- data.frame(samples.matrix, pca$x)
 p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:9))
 
-ggplot(p, aes(x=true_status, y=score, fill=true_status)) + 
+ggplot(p, aes(x=PAM50, y=score, fill=PAM50)) + 
   geom_boxplot(outlier.colour=NaN) + 
   #geom_jitter(alpha=0.5) + 
   facet_wrap(~PC) + 
   scale_fill_brewer(palette="Set2")
 
 
-##### heatmaps
+#tumour types 
+d <- data.frame(samples.matrix, pca$x)
+p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:9))
 
-# Normalize without log
-dgeH <- DGEList(newdataSE)
-dgeH <- calcNormFactors(object=dgeH, method="TMM")
-EM_nolog <- cpm(x=dgeH, log=FALSE)
+ggplot(p, aes(x=tumourTypes, y=score, fill=tumourTypes)) + 
+  geom_boxplot(outlier.colour=NaN) + 
+  #geom_jitter(alpha=0.5) + 
+  facet_wrap(~PC) + 
+  scale_fill_brewer(palette="Set2")
 
-# Calculate distance with manhattan
-dm <- dist(t(scale(EM_nolog)), method="manhattan")
+#tumour stages
+d <- data.frame(samples.matrix, pca$x)
+p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:9))
 
-# Calculate eucliedan distances
-distmat <- dist(t(EM))
-cormat <- cor(EM)
-
-corrplot::corrplot(corr=cormat, method="ellipse", diag=FALSE, order="AOE")
-
-pheatmap::pheatmap(mat = as.matrix(dm), color = brewer.pal(name = "RdPu", n = 9),
-                   clustering_distance_rows = dm, clustering_distance_cols = dm,
-                   #annotation_col=design,
-                   cluster_cols = TRUE, cluster_rows = FALSE, 
-                   show_rownames = FALSE,show_colnames = FALSE)
+ggplot(p, aes(x=tumourStages, y=score, fill=tumourStages)) + 
+  geom_boxplot(outlier.colour=NaN) + 
+  #geom_jitter(alpha=0.5) + 
+  facet_wrap(~PC) + 
+  scale_fill_brewer(palette="Set2")
 
 
+#age group
+d <- data.frame(samples.matrix, pca$x)
+p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:9))
 
-#now plot using correlation instead of distance, and then annotation by both
-#condition and PC-scores of the first 3 PCs. 
-#Here we could also have highlighted the result of a clustering analysis.
+ggplot(p, aes(x=ageGroups, y=score, fill=ageGroups)) + 
+  geom_boxplot(outlier.colour=NaN) + 
+  #geom_jitter(alpha=0.5) + 
+  facet_wrap(~PC) + 
+  scale_fill_brewer(palette="Set2")
 
-#Let's first quickly rescale correlations to distances:
-cor_as_dist <- as.dist((1-cormat) / 2) # rescale correlations to 01 range distances 
+#year group
+d <- data.frame(samples.matrix, pca$x)
+p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:9))
 
+ggplot(p, aes(x=yearGroups, y=score, fill=yearGroups)) + 
+  geom_boxplot(outlier.colour=NaN) + 
+  #geom_jitter(alpha=0.5) + 
+  facet_wrap(~PC) + 
+  scale_fill_brewer(palette="Set2")
 
-###### classes setup #####
+#race
+d <- data.frame(samples.matrix, pca$x)
+p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:9))
 
-#get only interesting cols
-names(samples.matrixPAM50_NP)
-design<-subset(samples.matrixPAM50_NP[,c('tumourType','true_status')])#, 'tss'
-row.names(design)<-samples.matrixPAM50_NP$barcode
-
-#recorder annotations
-design$true_status = factor(design$true_status, levels = c("Basal-like", "HER2-enriched", "Luminal A", "Luminal B", "Normal-like", "normal"))
-design$tumourType = factor(design$tumourType, levels = c("type1", "type2"))
-true_statusCol= c( "turquoise4", "darkorange2", "slateblue2", "palevioletred2", "gold2", "olivedrab3")
-tumourTypCol = c( "orange2","royalblue4")
-names(true_statusCol)<-levels(design$true_status)
-names(tumourTypCol)<-levels(design$tumourType)
-
-
-annColour <-list(
-  true_status=true_statusCol,
-  tumourType=tumourTypCol
-)
-######
-
-
-# heatmap of the correlation matrix 
-pheatmap::pheatmap(mat = t(cormat), color = brewer.pal(name = "YlGnBu", n = 9), 
-                   clustering_distance_rows = cor_as_dist, clustering_distance_cols = cor_as_dist, 
-                   annotation_col=design,
-                   annotation_colors = annColour,
-                   cluster_cols = TRUE, cluster_rows = FALSE,
-                   show_rownames = FALSE, show_colnames = FALSE)
-
-
-pheatmap::pheatmap(mat=as.matrix(distmat), color=brewer.pal(name="YlOrRd", n=9), 
-                   clustering_distance_rows=distmat, clustering_distance_cols=distmat,
-                   annotation_row=design,
-                   cluster_cols = FALSE, cluster_rows = TRUE, 
-                   show_rownames = FALSE,show_colnames = FALSE)
-
-
-#Heatmap of large datasets
-
-#To avoid overplotting, pheatmap has a feature for aggregating rows prior to 
-#plotting using k-means, and then clustering the k centers instead.
-
-#Using this feature we can create heatmap of even very big datasets.
-#However, the resulting plot will depend heavily of the choice of k.
-#When plotting actual expression values, it is often useful to scale the dendrogram, 
-#so we do not primarily see differences in expression level, but rather differences
-#in expression patterns.
+ggplot(p, aes(x=race, y=score, fill=race)) + 
+  geom_boxplot(outlier.colour=NaN) + 
+  #geom_jitter(alpha=0.5) + 
+  facet_wrap(~PC) + 
+  scale_fill_brewer(palette="Set2")
 
 
 
-EM.t <- cpm(x=dge, log=TRUE)
-
-design2<-design
-rownames(design2) <- colnames(EM)
-
-pheatmap::pheatmap(mat = EM, kmeans_k = 50, annotation_col= design, annotation_colors = annColour,
-                   scale = "column", gp = gpar(fill = "red"),
-                   cluster_cols = TRUE, cluster_rows = TRUE, 
-                   show_rownames = FALSE,show_colnames = FALSE)
-
-EM.t<-t(EM)
-dim(EM.t)
-rownames()
-
-
-pheatmap::pheatmap(mat = EM.t, kmeans_k = 100, #annotation_col= design2, 
-                   scale = "row", gp = gpar(fill = "red"),
-                   cluster_cols = TRUE, cluster_rows = TRUE, 
-                   show_rownames = FALSE,show_colnames = TRUE)
-
+stop()
 ################## EDA for subtypes ###################
 
 dge <- DGEList(newdataSE)

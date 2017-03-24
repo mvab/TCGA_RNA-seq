@@ -190,8 +190,7 @@ getDataBarcodes <- function(argsProjectID, barcodeList, paired=FALSE){
 
 # extract  tumour/normal
 
-argsTN<-as.vector(read.table(argsTN, as.is = T, header = FALSE) )
-argsTN<-argsTN$V1
+argsTN<-as.vector(read.table(argsTN, as.is = T, header = FALSE) )$V1
 print (paste0("Querying long sample barcodes for Tumour/Normal."))
 pairedSamples<-getDataBarcodes(argsProjectID, argsTN, paired=TRUE)
 allTumourSamples <- pairedSamples$TP
@@ -207,8 +206,7 @@ if ( length(conditions_specified) != 0 ) {
   samplesToExtract<-list()
   for (i in 1:length(conditions_specified)) { 
     print (paste0("Querying long sample barcodes for Condition ", i, ": ", conditions_specified[i]))
-    this_condition_Samples<-as.vector(read.table(conditions_specified[i], as.is = T, header = FALSE))
-    this_condition_Samples<-this_condition_Samples$V1
+    this_condition_Samples<-as.vector(read.table(conditions_specified[i], as.is = T, header = FALSE))$V1
     condSamples<-getDataBarcodes(argsProjectID, this_condition_Samples)
     samplesToExtract[[ substr(conditions_specified[i],1,nchar(conditions_specified[i])-4) ]] <- condSamples
   }
@@ -354,6 +352,10 @@ print (unique(samplesMatrix$tumourStages))
 print ("Assigned the following conditions")
 print (unique(samplesMatrix$condition))
 
+
+#replace 'unknowm' in normal samples with NA
+samplesMatrix<- within(samplesMatrix, tumourTypes[condition == 'normal'] <- NA)
+samplesMatrix <- within(samplesMatrix, tumourStages[condition == 'normal'] <- NA)
 
 
 cat("\n")
