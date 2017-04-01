@@ -18,21 +18,37 @@ suppressMessages(library(dplyr))
 
 setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data")
 
-## subtype data upload
-dataSE<-get(load("brcaExp_PreprocessedData_wo_batch_updatedSE_subtypes.rda"))
-samples.matrix<-get(load("brcaExp_PreprocessedData_wo_batch_sampleMatrix_subtypes.rda"))
-dim(samples.matrix)
 
 #femaly only T/N data upload
-dataSE<-get(load("brcaExp_PreprocessedData_wo_batch_updatedSE_allFemale.rda"))
-samples.matrixA<-get(load("brcaExp_PreprocessedData_wo_batch_sampleMatrix_allFemale.rda"))
-dim(samples.matrixA)
+#dataSE<-get(load("brcaExp_PreprocessedData_wo_batch_updatedSE_allFemale.rda"))
+#samples.matrixA<-get(load("brcaExp_PreprocessedData_wo_batch_sampleMatrix_allFemale.rda"))
+#dim(samples.matrixA)
 
 
 ## most recent all types and stages data upload
-dataSE<-get(load("brcaExp_PreprocessedData_wo_batch_updatedSE_allTypes_allStages_Female.rda"))
-samples.matrix<-get(load("brcaExp_PreprocessedData_wo_batch_sampleMatrix_allTypes_allStages_Female.rda"))
+dataSE<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedData_wo_batch_GC_010_updatedSE_allTypes_allStages_Female.rda"))
+samples.matrix<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedData_wo_batch_GC_010_sampleMatrix_allTypes_allStages_Female.rda"))
 dim(samples.matrix)
+
+
+#### extract data only for autophagy genes
+
+getAutophagyGenes <- function(dataSE){
+  
+  autophagy_genes<- as.vector(read.table("autopahagy_genes.txt", as.is = T, header = FALSE))$V1
+  all_genes<-rownames(dataSE)
+  shared <- intersect(autophagy_genes,all_genes)
+  newdataSE<- dataSE[c(shared),]
+  
+  print(paste0("Total number of genes: ", length(all_genes)))
+  print(paste0("Autophagy genes: ", length(shared)))
+  
+  return(newdataSE)
+} 
+
+dataSE <- getAutophagyGenes(dataSE)
+dim(dataSE)
+
 
 
 
@@ -149,7 +165,9 @@ addBRCAReceptorStatus <- function(samples.matrix){
 addPAM50removePairedCancer<-function(samples.matrix){
   
   # get information on subtype/pation details
-  dataSubt <- TCGAquery_subtype(tumor = "BRCA") 
+  #dataSubt <- TCGAquery_subtype(tumor = "BRCA") 
+  
+  dataSubt<-get(load("dataSubt.rda"))
   
   #add extra patient information, but some have NAs; if FALSE- no NAs but lose ~200 patients #~735
   subdiagnosis <- merge(samples.matrix, dataSubt, by="patient", all.x=TRUE) 
@@ -193,9 +211,16 @@ newdataSE<- dataSE[,!colnames(dataSE) %in% sampleToremoveSE]
 dim(newdataSE) #7449x515 or 579 if include paired
 
   
+## renameing the largest morphology group to NA for testing
 
-    
-    
+samples.matrix$tumourTypes <- as.character(samples.matrix$tumourTypes)
+
+samples.matrix$tumourTypes[samples.matrix$tumourTypes == "female_85003"] <- NA
+samples.matrix$tumourTypes <- as.factor(samples.matrix$tumourTypes)
+
+
+
+newdataSE<-dataSE    
 ###################### EDA for (full) dataset #########################
 dim(newdataSE)    
 dge <- DGEList(newdataSE)
@@ -218,7 +243,7 @@ ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$PAM50))+ #, 
   theme(legend.position="bottom")
 
 # tumour types
-ggplot(data=as.data.frame(pca$x),aes(x=PC4,y=PC2,col=samples.matrix$tumourTypes))+ #, shape =samples.matrix$tumourType
+ggplot(data=as.data.frame(pca$x),aes(x=PC3,y=PC2,col=samples.matrix$tumourTypes))+ #, shape =samples.matrix$tumourType
   geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
   scale_colour_brewer(palette = "Set2")+ #your colors here
   theme_classic()+

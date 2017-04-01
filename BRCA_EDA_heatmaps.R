@@ -20,15 +20,62 @@ setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data")
 #samplesMatrix<-get(load("brcaExp_PreprocessedData_wo_batch_sampleMatrix_allFemale.rda"))
 
 ## most recent all types and stages data upload
-dataSE<-get(load("brcaExp_PreprocessedData_wo_batch_updatedSE_allTypes_allStages_Female.rda"))
-samplesMatrix<-get(load("brcaExp_PreprocessedData_wo_batch_sampleMatrix_allTypes_allStages_Female.rda"))
+dataSE<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedData_wo_batch_GC_010_updatedSE_allTypes_allStages_Female.rda"))
+samplesMatrix<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedData_wo_batch_GC_010_sampleMatrix_allTypes_allStages_Female.rda"))
+
+#### extract data only for autophagy genes
+
+getAutophagyGenes <- function(dataSE){
+  
+  autophagy_genes<- as.vector(read.table("autopahagy_genes.txt", as.is = T, header = FALSE))$V1
+  all_genes<-rownames(dataSE)
+  shared <- intersect(autophagy_genes,all_genes)
+  newdataSE<- dataSE[c(shared),]
+  
+  print(paste0("Total number of genes: ", length(all_genes)))
+  print(paste0("Autophagy genes: ", length(shared)))
+  
+  return(newdataSE)
+} 
+
+dataSE <- getAutophagyGenes(dataSE)
+dim(dataSE)
+
+##########################
+
+
+
+
+
+
+
+
+
+
+addClinData<-function(sample.matrix){
+  
+  clindata<-get(load("clinData_prepared.rda"))
+  samples.matrix_clinincal <- merge(sample.matrix, clindata, by="patient", all.x=TRUE) 
+  #samples.matrix_clinincal <- samples.matrix_clinincal[order(samples.matrix_clinincal$myorder), ]
+  
+  return(samples.matrix_clinincal)
+}
+
+# only do this if want to add clinical data
+samplesMatrix<-addClinData(samplesMatrix)
+dim(samplesMatrix)
+head(samplesMatrix)
+dataSE<- dataSE[,c(samplesMatrix$barcode)]
+dim(dataSE)
+
 
 
 
 addPAM50removePairedCancer<-function(samples.matrix){
   
   # get information on subtype/pation details
-  dataSubt <- TCGAquery_subtype(tumor = "BRCA") 
+  #dataSubt <- TCGAquery_subtype(tumor = "BRCA") 
+  dataSubt<-get(load("dataSubt.rda"))
   
   #add extra patient information, but some have NAs; if FALSE- no NAs but lose ~200 patients #~735
   subdiagnosis <- merge(samples.matrix, dataSubt, by="patient", all.x=TRUE) 
@@ -77,31 +124,44 @@ table(samplesMatrix$PAM50)
 
 
 ## if without PAM50, then
-#newdataSE<-dataSE
-
-###
-autophagy_genes<- as.vector(read.table("autopahagy_genes.txt", as.is = T, header = FALSE))$V1
-dataSE_autophagy <-subset(newdataSE, row.names(newdataSE) %in% autophagy_genes)
-dim(dataSE_autophagy)
-####
-
-
-
-
+newdataSE<-dataSE
 
 
 
 ##### heatmaps #####
 
-###### classes setup #####
+#### genes classes setup ###
+
+g_functions <- get(load("autophagy_functions.rda"))       #### add comments!
+rownames(g_functions)<-g_functions$genes
+
+ok_autop_genes<-rownames(newdataSE)
+ok_g_functions<-g_functions[c(ok_autop_genes),]
+dim(ok_g_functions)
+
+head(ok_g_functions)
+
+
+thirteen_cols<- c("#3579b4","#c8c049","#8996da","#ee5345",
+                  "#c84297","#43ea3b","#50a376","#281340",
+                  "#6e5c41","#fd0d32","#f19832","#94f5d2","#b1f555")
+ok_g_functions$gene_functions=factor(ok_g_functions$gene_functions,
+              levels=c("multifunction","lipid","phosphatidyl","endo_exosomes",    
+              "transport","rabs","docking_fusion","mito","autoph_core",
+              "transcr_factors","receptors_ligands", "mTOR_induction","lysosome"))
+names(thirteen_cols)<-levels(ok_g_functions$gene_functions)
+
+ok_g_functions$genes <-NULL
+
+###### patient classes setup #####
 
 #get only interesting cols
 names(samplesMatrix)
-design<-subset(samplesMatrix[,c('tumourTypes','tumourStages','PAM50')])#, 'tss'
+design<-subset(samplesMatrix[,c('tumourTypes','tumourStages')])#,'PAM50')])#, 'tss'
 row.names(design)<-samplesMatrix$barcode
 
 #recorder annotations
-design$PAM50 = factor(design$PAM50, levels = c("Basal-like", "HER2-enriched", "Luminal A", "Luminal B", "Normal-like", "normal"))
+#design$PAM50 = factor(design$PAM50, levels = c("Basal-like", "HER2-enriched", "Luminal A", "Luminal B", "Normal-like", "normal"))
 design$tumourTypes = factor(design$tumourTypes, levels = c("female_84803", "female_85003", "female_85203", "female_85223","female_85233", "female_85753 ", "unknown")) #here unknown is mixed
 design$tumourStages = factor(design$tumourStages, levels = c("stage1", "stage2", "stage3", "stage4", "unknown")) 
 
@@ -109,56 +169,77 @@ design$tumourStages = factor(design$tumourStages, levels = c("stage1", "stage2",
 PAM50Col= c( "turquoise4", "darkorange2", "slateblue2", "palevioletred2", "gold2", "olivedrab3")
 tumourTypCol = c( "#bebada", "#8dd3c7","#b3de69",  "#fb8072", "#80b1d3", "#fdb462","white")
 #tumourTypCol = c(  "khaki2","palegreen1",  "tomato1","royalblue4","yellowgreen","deeppink3", "aquamarine1")
-tumourStgCol = c( "coral1","coral4","salmon3", "sandybrown", "white")
+tumourStgCol = c( "red","green","blue", "yellow", "white")
 names(PAM50Col)<-levels(design$PAM50)
 names(tumourTypCol)<-levels(design$tumourTypes)
 names(tumourStgCol)<-levels(design$tumourStages)
 
 annColour <-list(
-  PAM50=PAM50Col,
+  #PAM50=PAM50Col,
   tumourTypes=tumourTypCol,
-  tumourStages=tumourStgCol
+  tumourStages=tumourStgCol,
+  gene_functions=thirteen_cols
 )
 ######
 
 
-
+# normalise with log
 dge <- DGEList(newdataSE)
 dge <- calcNormFactors(object=dge, method="TMM")
 EM <- cpm(x=dge, log=TRUE)
 
 # Normalize without log
-dgeH <- DGEList(newdataSE)
-dgeH <- calcNormFactors(object=dgeH, method="TMM")
-EM_nolog <- cpm(x=dgeH, log=FALSE)
+#dgeH <- DGEList(newdataSE)
+#dgeH <- calcNormFactors(object=dgeH, method="TMM")
+#EM_nolog <- cpm(x=dgeH, log=FALSE)
 
 # Calculate distance with manhattan
-dm <- dist(t(scale(EM_nolog)), method="manhattan")
+#dm <- dist(t(scale(EM_nolog)), method="manhattan")
+
+dm<-dist(t(EM))
+
+rownames(dm)
+
+
 
 #patients
 pheatmap::pheatmap(mat = as.matrix(dm), color = brewer.pal(name = "RdPu", n = 9),
-                   clustering_distance_rows = dm, clustering_distance_cols = dm,
+                   #clustering_distance_rows = dm, clustering_distance_cols = dm,
                    annotation_col=design,
                    annotation_colors = annColour,
-                   cluster_cols = TRUE, cluster_rows = FALSE, 
-                   show_rownames = FALSE,show_colnames = FALSE)
+                   cluster_cols = TRUE, cluster_rows = F, 
+                   show_rownames = F,show_colnames = F)
+
+pheatmap::pheatmap(mat = as.matrix(EM), color = brewer.pal(name = "RdPu", n = 9),
+                   clustering_distance_rows = 'euclidean', #clustering_distance_cols = 'euclidean',
+                   annotation_col=design,
+                   annotation_colors = annColour,
+                   annotation_row=ok_g_functions,
+                   cluster_cols = T, cluster_rows = T, 
+                   show_rownames = F,show_colnames = FALSE,
+                   fontsize = 5)
+
 #genes
 
-# Normalize without log
-dgeH_auto <- DGEList(dataSE_autophagy)
-dgeH_auto <- calcNormFactors(object=dgeH_auto, method="TMM")
-EM_nolog_auto <- cpm(x=dgeH_auto, log=FALSE)
+stop()
+dim(EM)
 
-# Calculate distance with manhattan
-dm_auto <- dist(t(scale(EM_nolog_auto)), method="manhattan")
-dim(dm_auto)
+average.lin <- function(x) hclust(x, method="average") #average linkage
 
-pheatmap::pheatmap(mat = as.matrix(dm_auto), color = brewer.pal(name = "RdPu", n = 9),
-                   clustering_distance_rows = dm_auto, clustering_distance_cols = dm_auto,
-                   annotation_col=design,
-                   annotation_colors = annColour,
-                   cluster_cols = T, cluster_rows = T, 
-                   show_rownames = F,show_colnames = F)
+heatmap.2(EM, hclustfun=average.lin, #RowSideColors = c(rep("blue", 32),rep("yellow", 32), rep("magenta", 32)), 
+          col=redgreen, trace="none",
+          dendrogram = c("both"))#, main="Heatmap of gene expression")
+
+
+
+
+
+
+
+
+
+
+
 
 
 ### why it uses patient on both sides?
