@@ -1,5 +1,5 @@
 
-setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/autophagy_genes_lists")
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/autophagy_genes_lists")
 
 #autophagy genes cathegories
 lipid<- as.vector(read.table("lipid.txt", as.is = T, header = FALSE))$V1
@@ -74,11 +74,37 @@ head(auto_matrix)
 save(auto_matrix, file="autophagy_functions.rda")
 
 
-
-
-
 #####
 
 
+
+dataSE<-get(load("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedData_wo_batch_GC_010_updatedSE_allTypes_allStages_Female.rda"))
+
+# current all genes
+all_genes<-rownames(dataSE)
+# all possible autophagy genes
+length(all_unique_auto_genes)
+# autophagy that are not in current genes
+removed_autophagy <- all_unique_auto_genes[which(!all_unique_auto_genes %in% all_genes)]
+length(removed_autophagy)
+
+
+## print what genes were removed in each functonal group with filtering
+
+for (name in names(autophagy_genes)) {
+  print(name)
+  removed <- vector(mode="character", length=0)
+
+  for (i in 1:length(removed_autophagy)){
+
+    if(removed_autophagy[i] %in% c(autophagy_genes[[name]])){
+      removed<-append(removed, removed_autophagy[i])
+    }
+  }
+  print(paste0("Removed ",length(removed), " genes in group ", name, ", they are:"))
+  print(removed)
+  cat("\n")
+  removed<-NULL
+}  
 
 
