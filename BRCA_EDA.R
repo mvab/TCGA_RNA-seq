@@ -32,6 +32,7 @@ dim(samples.matrix)
 dim(dataSE)
 
 
+
 #trying cancer only with subtypes (1081)
 dataSE<-get(load("BRCA_Illumina_HiSeqnew_PreprocessedData_wo_batch_GC_010_updatedSE_allTypes_allStages_Female_cancerOnly_2017-04-02_16-22.rda"))
 samples.matrix<-get(load("BRCA_Illumina_HiSeqnew_PreprocessedData_wo_batch_GC_010_sampleMatrix_allTypes_allStages_Female_cancerOnly_2017-04-02_16-23.rda"))
@@ -171,20 +172,16 @@ addBRCAReceptorStatus <- function(samples.matrix){
   
 ########################################################  
 
-
-addPAM50andNormal<-function(samples.matrix){
+addXtraandNormal<-function(samples.matrix){
     
-    # get information on subtype/pation details
-    #dataSubt <- TCGAquery_subtype(tumor = "BRCA") 
-  
-    dataSubt<-get(load("dataSubt.rda"))
+    extradata<-get(load("extradata_var_w_old.rda"))
     
     #add extra patient information #578
-    subdiagnosis <- merge(samples.matrix, dataSubt, by="patient", all.x=T) 
+    subdiagnosis <- merge(samples.matrix, extradata, by="patient", all.x=T) 
     subdiagnosis <- subdiagnosis[order(subdiagnosis$myorder), ]
     
     # get barcodes of samples with PAM50 recorded
-    diag <- subdiagnosis[!is.na(subdiagnosis$PAM50.mRNA), ] 
+    diag <- subdiagnosis[!is.na(subdiagnosis$PAM50new), ] 
     diag <- diag$barcode #578
     
     # get barcodes of patients with paired samples
@@ -197,27 +194,33 @@ addPAM50andNormal<-function(samples.matrix){
     paired <- as.character(paired$barcode)
     
     # concatnate barcodes to keep
-    
     #join NA and paired cancer samples
     to_keep <- unique(sort(c(as.character(diag), as.character(paired)))) #578+112=626 unique (some normals have subtype label)
-    
-    #only keep diag
-    #to_keep <- (c(as.character(diag)))
-    
+
     # remove samples with no subdtype label and paired tumor sample from dataframe, subtype vector and ID-information.
     samples.matrix <- samples.matrix[samples.matrix$barcode %in% to_keep, ]    
     subdiagnosis <- subdiagnosis[subdiagnosis$barcode %in% to_keep, ]
     
     # make normal samples from pairs "normal" while retaining info on subtype.
-    subdiagnosis$PAM50 <- ifelse(subdiagnosis$condition == "normal", "normal", as.character(subdiagnosis$PAM50.mRNA))
+    subdiagnosis$PAM50 <- ifelse(subdiagnosis$condition == "normal", "normal", as.character(subdiagnosis$PAM50new))
     
     print ("Keeping PAM50 samples and all normals:")
     print( table(subdiagnosis$PAM50))
     
-    return(list(samples.matrix=subdiagnosis, samplesToKeep=to_keep))
-  }  
+    return(list(samples.matrix=subdiagnosis, samplesToKeep=to_keep, normal_barcodes = paired))
+}  
+  
+PAMNPout<-addXtraandNormal(samples.matrix)
+samples.matrix<-PAMNPout$samples.matrix 
+dim(samples.matrix)
 
+sampleTokeepSE <- PAMNPout$samplesToKeep
+dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
+dim(dataSE) 
+  
 
+source("../functions.R")  
+  
   # if used addPAM50andNormal DO THIS:
 PAMNPout<-addPAM50andNormal(samples.matrix)
 samples.matrix<-PAMNPout$samples.matrix 
@@ -228,7 +231,26 @@ dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
 dim(dataSE) 
 
 
+## renaming differing PAM labels
+addAltPAM50<-function(samples.matrix){
 
+    PAM50_upd<-get(load("potentially_wrong_PAM.rda"))
+    names(PAM50_upd)[2]<-"PAM50upd"
+
+    samples.matrix <- merge(samples.matrix, PAM50_upd, by="patient", all.x=TRUE) 
+    samples.matrix <- samples.matrix[order(samples.matrix$myorder), ]
+    samples.matrix$PAM50upd <- ifelse(samples.matrix$condition == "normal", "normal", as.character(samples.matrix$PAM50upd))
+    
+    for (i in 1:length(samples.matrix$patient)){
+      if (is.na(samples.matrix$PAM50upd[i])){
+        samples.matrix$PAM50upd[i]<-samples.matrix$PAM50[i]
+      }
+    }
+    return(samples.matrix)
+}
+
+samples.matrix<-addAltPAM50(samples.matrix)
+names(samples.matrix)
 
 ###### renaming the largest morphology group to NA for testing############
 
@@ -265,7 +287,7 @@ summary(pca)
 qplot(data=as.data.frame(pca$x), x=PC1, y=PC2, geom=c("point"), color=samples.matrix$PAM50)
 
 #PAM50 status
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$PAM50))+ #, shape =samples.matrix$tumourType
+ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$PAM50upd))+ #, shape =samples.matrix$tumourType
   geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
   #scale_colour_brewer(palette = "Set2")+ #your colors 
   scale_colour_manual(values=cbPalette)+
