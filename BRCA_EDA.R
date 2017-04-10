@@ -17,12 +17,7 @@ suppressMessages(library(dplyr))
 
 
 setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data")
-
-
-#femaly only T/N data upload
-#dataSE<-get(load("brcaExp_PreprocessedData_wo_batch_updatedSE_allFemale.rda"))
-#samples.matrixA<-get(load("brcaExp_PreprocessedData_wo_batch_sampleMatrix_allFemale.rda"))
-#dim(samples.matrixA)
+source("../functions.R") 
 
 
 ## most recent all types and stages cancer and normal
@@ -30,8 +25,6 @@ dataSE<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedData_wo
 samples.matrix<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedData_wo_batch_GC_010_sampleMatrix_allTypes_allStages_Female.rda"))
 dim(samples.matrix)
 dim(dataSE)
-
-
 
 #trying cancer only with subtypes (1081)
 dataSE<-get(load("BRCA_Illumina_HiSeqnew_PreprocessedData_wo_batch_GC_010_updatedSE_allTypes_allStages_Female_cancerOnly_2017-04-02_16-22.rda"))
@@ -41,25 +34,11 @@ dim(dataSE)
 
 
 
+#### rename morphology
+samples.matrix<-renameMorph(samples.matrix)
+
 #### extract data only for autophagy genes
-
-getAutophagyGenes <- function(dataSE){
-  
-  autophagy_genes<- as.vector(read.table("autopahagy_genes.txt", as.is = T, header = FALSE))$V1
-  all_genes<-rownames(dataSE)
-  shared <- intersect(autophagy_genes,all_genes)
-  dataSE<- dataSE[c(shared),]
-  
-  print(paste0("Total number of genes: ", length(all_genes)))
-  print(paste0("Autophagy genes: ", length(shared)))
-  
-  return(dataSE)
-} 
-
 dataSE <- getAutophagyGenes(dataSE)
-dim(dataSE)
-
-
 
 
 ########## exploration of different matrices : DO NOT RUN for standard case ########
@@ -172,57 +151,12 @@ addBRCAReceptorStatus <- function(samples.matrix){
   
 ########################################################  
 
-addXtraandNormal<-function(samples.matrix){
-    
-    extradata<-get(load("extradata_var_w_old.rda"))
-    
-    #add extra patient information #578
-    subdiagnosis <- merge(samples.matrix, extradata, by="patient", all.x=T) 
-    subdiagnosis <- subdiagnosis[order(subdiagnosis$myorder), ]
-    
-    # get barcodes of samples with PAM50 recorded
-    diag <- subdiagnosis[!is.na(subdiagnosis$PAM50new), ] 
-    diag <- diag$barcode #578
-    
-    # get barcodes of patients with paired samples
-    
-    #get patients with 2 entries == 224
-    paired <- samples.matrix[ duplicated(samples.matrix$participant, fromLast=FALSE) | duplicated(samples.matrix$participant, fromLast=TRUE),] 
-    paired <- as.character(paired$participant)
-    #get normal samples from paired data == 112
-    paired <- samples.matrix[samples.matrix$participant %in% paired & samples.matrix$condition == "normal", ]  
-    paired <- as.character(paired$barcode)
-    
-    # concatnate barcodes to keep
-    #join NA and paired cancer samples
-    to_keep <- unique(sort(c(as.character(diag), as.character(paired)))) #578+112=626 unique (some normals have subtype label)
 
-    # remove samples with no subdtype label and paired tumor sample from dataframe, subtype vector and ID-information.
-    samples.matrix <- samples.matrix[samples.matrix$barcode %in% to_keep, ]    
-    subdiagnosis <- subdiagnosis[subdiagnosis$barcode %in% to_keep, ]
-    
-    # make normal samples from pairs "normal" while retaining info on subtype.
-    subdiagnosis$PAM50 <- ifelse(subdiagnosis$condition == "normal", "normal", as.character(subdiagnosis$PAM50new))
-    
-    print ("Keeping PAM50 samples and all normals:")
-    print( table(subdiagnosis$PAM50))
-    
-    return(list(samples.matrix=subdiagnosis, samplesToKeep=to_keep, normal_barcodes = paired))
-}  
   
-PAMNPout<-addXtraandNormal(samples.matrix)
-samples.matrix<-PAMNPout$samples.matrix 
-dim(samples.matrix)
+# if used addPAM50 DO THIS:
 
-sampleTokeepSE <- PAMNPout$samplesToKeep
-dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
-dim(dataSE) 
-  
-
-source("../functions.R")  
-  
-  # if used addPAM50andNormal DO THIS:
-PAMNPout<-addPAM50andNormal(samples.matrix)
+#PAMNPout<-addPAM50andNormal(samples.matrix) #514
+PAMNPout<-addXtraPAMandNormal(samples.matrix)# (807 +104 -39) + 112 = 984
 samples.matrix<-PAMNPout$samples.matrix 
 dim(samples.matrix)
 
@@ -231,7 +165,9 @@ dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
 dim(dataSE) 
 
 
-## renaming differing PAM labels
+
+
+## renaming differing PAM labels (514, 39 renamed)
 addAltPAM50<-function(samples.matrix){
 
     PAM50_upd<-get(load("potentially_wrong_PAM.rda"))
@@ -248,9 +184,10 @@ addAltPAM50<-function(samples.matrix){
     }
     return(samples.matrix)
 }
-
 samples.matrix<-addAltPAM50(samples.matrix)
 names(samples.matrix)
+
+
 
 ###### renaming the largest morphology group to NA for testing############
 
@@ -270,8 +207,9 @@ samples.matrix$tumourTypes <- as.factor(samples.matrix$tumourTypes)
 
 
   
-###################### EDA for (full) dataset #########################
-cbPalette <- c( "#E69F00", "#0072B2", "#F0E442","#D55E00", "#009E73", "#CC79A7",   "#56B4E9", "black")
+###################### EDA for (full) dataset ######################### 
+cbPalette <- c( "#E69F00", "#0072B2", "#F0E442","#D55E00",  "#009E73", "#CC79A7",   "#56B4E9", "black")
+cbPaletteM <- c(  "#F0E442", "#D55E00","#E69F00", "#56B4E9", "#CC79A7",  "#0072B2", "#009E73",  "black")
 
 dim(dataSE)    
 dge <- DGEList(dataSE)
@@ -284,10 +222,10 @@ pca <- prcomp(x=t(EM), scale=TRUE, center=TRUE)
 # Inspect components
 summary(pca)
 #type                               
-qplot(data=as.data.frame(pca$x), x=PC1, y=PC2, geom=c("point"), color=samples.matrix$PAM50)
+qplot(data=as.data.frame(pca$x), x=PC1, y=PC2, geom=c("point"), color=samples.matrix$condition)
 
 #PAM50 status
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$PAM50upd))+ #, shape =samples.matrix$tumourType
+ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$PAM50))+ #, shape =samples.matrix$tumourType
   geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
   #scale_colour_brewer(palette = "Set2")+ #your colors 
   scale_colour_manual(values=cbPalette)+
@@ -297,12 +235,12 @@ ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$PAM50upd))+ 
 
 # tumour types
 ggplot(data=as.data.frame(pca$x),aes(x=PC3,y=PC2,col=samples.matrix$tumourTypes))+ #, shape =samples.matrix$tumourType
-  geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
-  #scale_colour_brewer(palette = "Set2")+ #your colors here
-  scale_colour_manual(values=cbPalette)+
-  theme_classic()+
-  theme(legend.position="bottom",
-        legend.title=element_blank())
+geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
+#scale_colour_brewer(palette = "Set2")+ #your colors here
+scale_colour_manual(values=cbPaletteM)+
+theme_classic()+
+theme(legend.position="bottom",
+legend.title=element_blank())
   
 
 
@@ -372,7 +310,7 @@ ggplot(p, aes(x=tumourTypes, y=score, fill=tumourTypes)) +
   geom_boxplot(outlier.colour=NaN) + 
   #geom_jitter(alpha=0.5) + 
   facet_wrap(~PC) + 
-  scale_fill_manual(values=cbPalette)
+  scale_fill_manual(values=cbPaletteM)
   #scale_fill_brewer(palette="Set2")
 
 #tumour stages

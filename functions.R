@@ -11,6 +11,76 @@ getAutophagyGenes <- function(dataSE){
   return(newdataSE)
 } 
 
+renameMorph<- function(samples.matrix){
+  
+  morph<-as.vector(samples.matrix$tumourTypes)
+  morph_renm <- vector(mode="character", length=0)
+  
+  for (i in 1:length(morph)){
+    
+    if (is.na(morph[i])){
+      morph_renm[i]<-  "Normal" 
+    } else if (morph[i] == "unknown") {
+      morph_renm[i]<- "Other"  
+    } else if (morph[i] == "female_84803") {
+      morph_renm[i]<- "Mucinous adenocarcinoma"
+    } else if (morph[i] =="female_85003" ){
+      morph_renm[i]<- "Ductal carcinoma"
+    } else if  (morph[i] =="female_85203"){
+      morph_renm[i]<- "Lobular carcinoma"
+    } else if (morph[i] =="female_85233"){
+      morph_renm[i] <- "Ductual mixed with others"
+    } else if (morph[i] =="female_85223" ){
+      morph_renm[i]<- "Ductal and lobular mixed"  
+    } else if (morph[i] =="female_85753") {
+      morph_renm[i]<- "Metaplastic carcinoma"    
+    }  
+  }
+  #length(morph)
+  #length(morph_renm)
+  samples.matrix$tumourTypes<-morph_renm
+  return(samples.matrix)
+}
+
+addXtraPAMandNormal<-function(samples.matrix){
+  
+  #extradata<-get(load("extradata_var_w_old.rda")) #991
+  extradata<-get(load("newPAM50list.rda")) #872
+
+  #add extra patient information #578
+  subdiagnosis <- merge(samples.matrix, extradata, by="patient", all.x=T) 
+  subdiagnosis <- subdiagnosis[order(subdiagnosis$myorder), ]
+  
+  # get barcodes of samples with PAM50 recorded
+  diag <- subdiagnosis[!is.na(subdiagnosis$PAM50new), ] 
+  diag <- diag$barcode #578
+  
+  # get barcodes of patients with paired samples
+  
+  #get patients with 2 entries == 224
+  paired <- samples.matrix[ duplicated(samples.matrix$participant, fromLast=FALSE) | duplicated(samples.matrix$participant, fromLast=TRUE),] 
+  paired <- as.character(paired$participant)
+  #get normal samples from paired data == 112
+  paired <- samples.matrix[samples.matrix$participant %in% paired & samples.matrix$condition == "normal", ]  
+  paired <- as.character(paired$barcode)
+  
+  # concatnate barcodes to keep
+  #join NA and paired cancer samples
+  to_keep <- unique(sort(c(as.character(diag), as.character(paired)))) #578+112=626 unique (some normals have subtype label)
+  
+  # remove samples with no subdtype label and paired tumor sample from dataframe, subtype vector and ID-information.
+  samples.matrix <- samples.matrix[samples.matrix$barcode %in% to_keep, ]    
+  subdiagnosis <- subdiagnosis[subdiagnosis$barcode %in% to_keep, ]
+  
+  # make normal samples from pairs "normal" while retaining info on subtype.
+  subdiagnosis$PAM50 <- ifelse(subdiagnosis$condition == "normal", "Normal", as.character(subdiagnosis$PAM50new))
+  
+  print ("Keeping PAM50 samples and all normals:")
+  print( table(subdiagnosis$PAM50))
+  subdiagnosis$PAM50new<-NULL
+  
+  return(list(samples.matrix=subdiagnosis, samplesToKeep=to_keep, normal_barcodes = paired))
+}  
 
 
 addPAM50andNormal<-function(samples.matrix){

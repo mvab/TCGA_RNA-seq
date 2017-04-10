@@ -15,7 +15,7 @@ head(extradata)
 #Basal-like HER2-enriched     Luminal A     Luminal B        normal   Normal-like 
 #97            58           230           121           112             8 
 
-table(extradata$PAM50)
+table(extradata$PAM50) #(less if 807 samples)
 #Basal   Her2   LumA   LumB Normal 
 #136     65    415    176     25 
 
@@ -38,7 +38,7 @@ dim(subdiagnosis)
 subdiagnosis$PAM50 <- ifelse(subdiagnosis$condition == "normal", "normal", as.character(subdiagnosis$PAM50.mRNA))
 samplesMatrixPAM<-subdiagnosis 
 dim(samplesMatrixPAM)
-table(samplesMatrixPAM$PAM50) #this contains all known labels but also PAM50
+table(samplesMatrixPAM$PAM50) #this contains all unknown labels but also PAM50
 
 
 length(intersect(samplesMatrix$patient, extradata$patient))#807 in 1081
@@ -72,7 +72,7 @@ for (i in 1:length(extradata$PAM50new)) {
 extradata$PAM50new <- PAM50_updname
 head(extradata)
 dim(extradata)
-table(extradata$PAM50new)
+table(extradata$PAM50new) #female only, renamed 
 
 
 save(extradata, file ="extradata_var.rda")
@@ -84,26 +84,28 @@ save(extradata, file ="extradata_var.rda")
 #merge PAM50new with original samples matrix
 samplesMatrixUpd<- merge(extradata, samplesMatrixPAM, by="patient", all.x=T, all.y=T)
 dim(samplesMatrixUpd)
+names(samplesMatrixUpd)
 
 
 # ad hoc comparison of new and existing PAM
 comparePAM<-subset(samplesMatrixUpd[, c("patient", "PAM50","PAM50new")])
 dim(comparePAM)
+#get cancer only
 comparePAM_cancerOnly<-(comparePAM[which(comparePAM$PAM50 != "normal" | is.na(comparePAM$PAM50)),])
 dim(comparePAM_cancerOnly)
 
 #remove samples that are NA in both
-
 comparePAM_cancerOnly_noNA<-data.frame()
 for (i in 1:length(comparePAM_cancerOnly$patient)){
   
-  if (is.na(comparePAM_cancerOnly$PAM50[i]) && is.na(comparePAM_cancerOnly$PAM50new[i])){
-     print(paste0("This sample ", comparePAM_cancerOnly$patient[i], " is NA"))
-     
-  }else{
-     comparePAM_cancerOnly_noNA<-rbind(comparePAM_cancerOnly_noNA, comparePAM_cancerOnly[i,])
-  }
+    if (is.na(comparePAM_cancerOnly$PAM50[i]) && is.na(comparePAM_cancerOnly$PAM50new[i])){
+       print(paste0("This sample ", comparePAM_cancerOnly$patient[i], " is NA"))
+       
+    }else{
+       comparePAM_cancerOnly_noNA<-rbind(comparePAM_cancerOnly_noNA, comparePAM_cancerOnly[i,])
+    }
 }
+
 names(comparePAM_cancerOnly_noNA)<-names(comparePAM_cancerOnly)
 dim(comparePAM_cancerOnly_noNA)
 head(comparePAM_cancerOnly_noNA) ##### no double NA, no normal
@@ -138,7 +140,6 @@ for (i in 1:length(comparePAM_cancerOnly_noNA$patient)){
             PAM50_upd<- rbind(PAM50_upd, comparePAM_cancerOnly_noNA[i,c("patient", "PAM50new")])
             
         }else if(comparePAM_cancerOnly_noNA$PAM50[i] == comparePAM_cancerOnly_noNA$PAM50new[i]){
-            #PAM50_upd[i]<- comparePAM_cancerOnly_noNA$PAM50new[i]
             right_count=right_count+1
         }
     }
@@ -160,12 +161,20 @@ PAM50old$PAM50new <-NULL
 colnames(PAM50old)<- c("patient", "PAM50new") #this is actually old, but called new for rbind
 names(PAM50old)
 
-extradata_w_old<- rbind(extradata, PAM50old)
+extradata_w_old<- rbind(extradata, PAM50old) #807 +104 =911
 dim(extradata_w_old)
 save(extradata_w_old, file ="extradata_var_w_old.rda")
 
 
-####
+#### wrong ann samples
 
 dim(PAM50_upd)
 save(PAM50_upd, file= "potentially_wrong_PAM.rda")
+
+
+# matching data, unique old, unique new
+non_matching_samples <-as.vector(factor(PAM50_upd$patient)) #39
+
+newPAM50list <- extradata_w_old[!(extradata_w_old$patient %in% non_matching_samples),] #911-39 = 872
+dim(newPAM50list)
+save(newPAM50list, file = "newPAM50list.rda")

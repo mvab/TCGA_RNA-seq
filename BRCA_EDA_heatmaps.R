@@ -38,10 +38,13 @@ dim(dataSE)
 #dataSE<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedData_wo_batch_GC_010_updatedSE_allTypes_allStages_Female.rda"))
 #samplesMatrix<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedData_wo_batch_GC_010_sampleMatrix_allTypes_allStages_Female.rda"))
 
-#### extract data only for autophagy genes
 
+#### rename morphology
+samplesMatrix<-renameMorph(samplesMatrix)
+
+#### extract data only for autophagy genes
 dataSE <- getAutophagyGenes(dataSE)
-dim(dataSE)
+
 
 ##########################
 
@@ -66,21 +69,18 @@ dim(dataSE)
 
 
 
-# if used addPAM50andNormal DO THIS:
-PAMNPout<-addPAM50andNormal(samplesMatrix)
+# if used addPAM50 DO THIS:
+
+#PAMNPout<-addPAM50andNormal(samples.matrix) #514
+PAMNPout<-addXtraPAMandNormal(samplesMatrix)# (807 +104 -39) + 112 = 984
 samplesMatrix<-PAMNPout$samples.matrix 
 dim(samplesMatrix)
 
 sampleTokeepSE <- PAMNPout$samplesToKeep
-newdataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
-dim(newdataSE) 
+dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
+dim(dataSE) 
 
 normal <- PAMNPout$normal_barcodes
-
-
-
-## if without PAM50, then
-newdataSE<-dataSE
 
 
 
@@ -91,7 +91,7 @@ newdataSE<-dataSE
 g_functions <- get(load("autophagy_functions.rda"))       #### add comments!
 rownames(g_functions)<-g_functions$genes 
 
-ok_autop_genes<-rownames(newdataSE)
+ok_autop_genes<-rownames(dataSE)
 ok_g_functions<-g_functions[c(ok_autop_genes),]
 
 thirteen_cols<- c("#3579b4","#c8c049","#8996da","#ee5345",
@@ -112,14 +112,22 @@ design<-subset(samplesMatrix[,c('tumourTypes','tumourStages','PAM50')])#, 'tss'
 row.names(design)<-samplesMatrix$barcode
 
 #recorder annotations
-design$PAM50 = factor(design$PAM50, levels = c("Basal-like", "HER2-enriched", "Luminal A", "Luminal B", "Normal-like", "normal"))
-design$tumourTypes = factor(design$tumourTypes, levels = c("female_84803", "female_85003", "female_85203", "female_85223","female_85233", "female_85753 ", "unknown")) #here unknown is mixed
+design$PAM50 = factor(design$PAM50, levels = c("Basal-like", "HER2-enriched", "Luminal A", "Luminal B", "Normal-like", "Normal"))
 design$tumourStages = factor(design$tumourStages, levels = c("stage1", "stage2", "stage3", "stage4", "unknown")) 
 
+design$tumourTypes = factor(design$tumourTypes,  
+                          levels = c("Normal",  "Mucinous adenocarcinoma", 
+                          "Ductal carcinoma","Lobular carcinoma", "Ductual mixed with others ",
+                          "Ductal and lobular mixed", "Metaplastic carcinoma" ,"Other")) #other is a mix of few samples of different ones
+
+# colours
 PAM50Col <- c( "#E69F00", "#0072B2", "#F0E442","red3", "#CC79A7","#009E73")##D55E00->altred
 #PAM50Col= c( "turquoise4", "darkorange2", "slateblue2", "palevioletred2", "gold2", "olivedrab3")
-tumourTypCol = c( "#bebada", "#8dd3c7","#b3de69",  "#fb8072", "#80b1d3", "#fdb462","white")
-tumourStgCol = c( "red","green","blue", "yellow", "white")
+
+#prev tumourTypCol = c( "#bebada", "#8dd3c7","#b3de69",  "#fb8072", "#80b1d3", "#fdb462","white")
+tumourTypCol = c("#009E73",  "#0072B2", "#D55E00","#56B4E9","#E69F00","#F0E442","#CC79A7", "white")
+
+tumourStgCol = c( "red","green","blue", "yellow2", "white")
 
 names(PAM50Col)<-levels(design$PAM50)
 names(tumourTypCol)<-levels(design$tumourTypes)
@@ -128,45 +136,50 @@ names(tumourStgCol)<-levels(design$tumourStages)
 annColour <-list(
   PAM50=PAM50Col,
   tumourTypes=tumourTypCol,
-  tumourStages=tumourStgCol,
-  gene_functions=thirteen_cols
+  tumourStages=tumourStgCol
+  #gene_functions=thirteen_cols
 )
 ######
 
 
 # normalise with log
-dge <- DGEList(newdataSE)
+dge <- DGEList(dataSE)
 dge <- calcNormFactors(object=dge, method="TMM")
 EM <- cpm(x=dge, log=TRUE)
+
 
 
 ## selecting top 1000 genes:
 
 # calc variance for each gene (log2 data), take top 1000 highest ->
 #look at the stuff that is actually changing
-
 #use only cancer samples for varince calculation
 EMc <- EM[, !(colnames(EM) %in% normal)]
 
-EM_var<- apply(EMc, MARGIN=1, var)
+EM_var<- apply(EMc, MARGIN=1, var) #calc var across the row
 length(EM_var)
 top_genes<- sort(EM_var, decreasing = TRUE)[1:1000]
 #barplot(top_genes)
 
+# cancer and normal
 EM2<- subset(EM[c(names(top_genes)),])
 dim(EM2)
 
-# check diffrenrce in top genes if all or cancer_only
-#top_genes_cancer_only<-names(top_genes)
-#top_genes_all <- names(top_genes)
-#length(intersect(top_genes_all,top_genes_cancer_only)) #853
+#only cancer
+EM2c<- subset(EMc[c(names(top_genes)),])
+dim(EM2c)
 
-# check home ny autophagy genes in top 1000 cancer_only and all
+save (EM2, file="PAM50_EM_for_cluster_testing_1K_cancer.rda")
+
+
+
+# check home any autophagy genes in top 1000 cancer_only and all
 data_only_auto<- getAutophagyGenes(dataSE)
 auto_genes<-rownames(data_only_auto)
 length(auto_genes)
 length(intersect(auto_genes, names(top_genes))) #30 (canOnly), 26 (all); shared 25
-                                                #362 in 50% top genes
+          
+                                      #362 in 50% top genes
 # pam50 autophagy test
 all_auto<-as.vector(read.table("autopahagy_genes.txt", as.is = T, header = FALSE))$V1
 pam50<-as.vector(read.table("pam50_list.txt", as.is = T, header = FALSE))$V1
@@ -176,13 +189,17 @@ length(intersect(pam50,auto_genes))#9
 
 ##################
 
-pheatmap::pheatmap(mat = as.matrix(EM2), color = brewer.pal(name = "YlGnBu", n = 9),
-                   clustering_distance_rows = 'correlation',#'euclidean',#'manhattan', # 
-                   clustering_distance_cols = 'correlation',#'euclidean',#'manhattan', #
-                   scale="row",
+pheatmap::pheatmap(mat = as.matrix(EM2c), color = brewer.pal(name = "YlGnBu", n = 9),
+                   #clustering_distance_rows = 'euclidean', 
+                   #clustering_distance_cols = 'euclidean',
+                   #clustering_distance_rows = 'correlation',
+                   #clustering_distance_cols = 'correlation',
+                   clustering_distance_rows = 'manhattan', 
+                   clustering_distance_cols = 'manhattan', 
+                   #scale="row",
                    annotation_col=design,
                    annotation_colors = annColour,
-                   annotation_row=ok_g_functions,
+                   #annotation_row=ok_g_functions,
                    cluster_cols = T, cluster_rows = T, 
                    show_rownames = F,show_colnames = F,
                    fontsize = 5)
