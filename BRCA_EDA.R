@@ -44,30 +44,27 @@ samples.matrix<-addClinData(samples.matrix)
 dataSE <- getAutophagyGenes(dataSE)
 
 
+# if used addOnlyTopTSS DO THIS:
+samples.matrix<-addOnlyTopTSS(samples.matrix)
+dim(samples.matrix)
+dataSE<- dataSE[,c(samples.matrix$barcode)]
+dim(dataSE)
 
-#View(samples.matrix[,c("tumourTypes", "morphology", "tumourStages", "substage")])
+# if used addPAM50 DO THIS:
 
+#PAMNPout<-addPAM50andNormal(samples.matrix) #514
+PAMNPout<-addXtraPAMandNormal(samples.matrix)# (807 +104 -39) + 112 = 984
+samples.matrix<-PAMNPout$samples.matrix 
+dim(samples.matrix)
 
-########## exploration of different matrices : DO NOT RUN for standard case ########
-
-addOnlyTopTSS <- function(samples.matrix){
-  
-  #filtering out patient with neither Positive nor Negative
-  tss_above50samples <-c("BH","A2","E2","A8","D8","E9", "AR", "B6","AC" ) #660 patients
-  #tss_2 <-c("A2","E9") 
-  
-  samples.matrix <- samples.matrix[samples.matrix$tss %in% tss_above50samples,] 
-  #samples.matrix <- samples.matrix[samples.matrix$tss %in% tss_2,] 
-  
-  return (samples.matrix)
-}   
-  # if used addOnlyTopTSS DO THIS:
-  samples.matrix<-addOnlyTopTSS(samples.matrix)
-  dim(samples.matrix)
-  dataSE<- dataSE[,c(samples.matrix$barcode)]
-  dim(dataSE)
+sampleTokeepSE <- PAMNPout$samplesToKeep
+dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
+dim(dataSE) 
 
 
+
+############# ad hoc testing 
+################################
 addBRCAReceptorStatus <- function(samples.matrix){
 
     # get information on subtype/pation details
@@ -142,16 +139,7 @@ addBRCAReceptorStatus <- function(samples.matrix){
 
 
   
-# if used addPAM50 DO THIS:
 
-#PAMNPout<-addPAM50andNormal(samples.matrix) #514
-PAMNPout<-addXtraPAMandNormal(samples.matrix)# (807 +104 -39) + 112 = 984
-samples.matrix<-PAMNPout$samples.matrix 
-dim(samples.matrix)
-
-sampleTokeepSE <- PAMNPout$samplesToKeep
-dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
-dim(dataSE) 
 
 
 
@@ -195,11 +183,15 @@ samples.matrix$tumourTypes <- as.factor(samples.matrix$tumourTypes)
 
 
 
+
+
+
   
 ###################### EDA for (full) dataset ######################### 
 cbPalette <- c( "#E69F00", "#0072B2", "#F0E442","#D55E00",  "#009E73", "#CC79A7",   "#56B4E9", "black")
 cbPaletteM <- c(  "#F0E442", "#D55E00","#E69F00", "#56B4E9", "#CC79A7",  "#0072B2", "#009E73",  "black","white")#
 cbPaletteOther <- c(  "#F0E442", "#56B4E9", "#CC79A7", "#D55E00","#E69F00",  "#0072B2", "#009E73",  "black")
+fortyColours<-c("#3579b4","#c8c049","#8996da","#ee5345","#c84297","#43ea3b","#50a376","#281340","#6e5c41","#94f5d2","#fd0d32","#f19832","#b1f555","#d727b1","#f27456","#4bfe9f","#61789b","#2896be","#db1453","#c7a233","#d9a5c8","#1e785f","#3183e5","#82117f","#e5cbb0","#2dc194","#8f2ccf","#4e8fec","#e7ad8a","#234220","#4cee30","#d7b51c","#c96629","#472134","#36d1c8","#9f6f63","#ac8d3c","#a63dbd","#1db9d9","#10c399")
 
 
 dim(dataSE)    
@@ -276,7 +268,6 @@ ggplot(p, aes(x=tss, y=score, fill=tss)) +
 ##################################
 
   
-
 # tumour stages
 ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$tumourStages))+ #, shape =samples.matrix$tumourType
   geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
@@ -288,22 +279,6 @@ ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$tumourStages
 
 #age group
 ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$ageGroup))+ #, shape =samples.matrix$tumourType
-  geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
-  scale_colour_brewer(palette = "Set2")+ #your colors here
-  theme_classic()+
-  theme(legend.position="bottom",
-        legend.title=element_blank())
-
-#year dignosed
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC3,col=samples.matrix$yearGroup))+ #, shape =samples.matrix$tumourType
-  geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
-  scale_colour_brewer(palette = "Set2")+ #your colors here
-  theme_classic()+
-  theme(legend.position="bottom",
-        legend.title=element_blank())
-
-#race
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC3,col=samples.matrix$race))+ #, shape =samples.matrix$tumourType
   geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
   scale_colour_brewer(palette = "Set2")+ #your colors here
   theme_classic()+
@@ -358,143 +333,7 @@ ggplot(p, aes(x=tumourStages, y=score, fill=tumourStages)) +
   #scale_fill_brewer(palette="Set2")
 
 
-#age group
-d <- data.frame(samples.matrix, pca$x)
-p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:9))
-
-ggplot(p, aes(x=ageGroups, y=score, fill=ageGroups)) + 
-  geom_boxplot(outlier.colour=NaN) + 
-  #geom_jitter(alpha=0.5) + 
-  facet_wrap(~PC) + 
-  scale_fill_brewer(palette="Set2")
-
-#year group
-d <- data.frame(samples.matrix, pca$x)
-p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:9))
-
-ggplot(p, aes(x=yearGroups, y=score, fill=yearGroups)) + 
-  geom_boxplot(outlier.colour=NaN) + 
-  #geom_jitter(alpha=0.5) + 
-  facet_wrap(~PC) + 
-  scale_fill_brewer(palette="Set2")
-
-#race
-d <- data.frame(samples.matrix, pca$x)
-p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:9))
-
-ggplot(p, aes(x=race, y=score, fill=race)) + 
-  geom_boxplot(outlier.colour=NaN) + 
-  #geom_jitter(alpha=0.5) + 
-  facet_wrap(~PC) + 
-  scale_fill_brewer(palette="Set2")
 
 
 
 stop()
-################## EDA for subtypes ###################
-
-dge <- DGEList(dataSE)
-dge <- calcNormFactors(object=dge, method="TMM")
-EM <- cpm(x=dge, log=TRUE)
-
-
-# Perfrom PCA
-pca <- prcomp(x=t(EM), scale=TRUE, center=TRUE)
-
-# Inspect components
-summary(pca)
-
-
-
-
-fortyColours<-c("#3579b4","#c8c049","#8996da","#ee5345","#c84297","#43ea3b","#50a376","#281340","#6e5c41","#94f5d2","#fd0d32","#f19832","#b1f555","#d727b1","#f27456","#4bfe9f","#61789b","#2896be","#db1453","#c7a233","#d9a5c8","#1e785f","#3183e5","#82117f","#e5cbb0","#2dc194","#8f2ccf","#4e8fec","#e7ad8a","#234220","#4cee30","#d7b51c","#c96629","#472134","#36d1c8","#9f6f63","#ac8d3c","#a63dbd","#1db9d9","#10c399")
-thirteenColours<-c("#3579b4","#c8c049","#8996da","#ee5345","#c84297","#43ea3b","#50a376","#281340","#6e5c41","#fd0d32","#f19832","#94f5d2","#b1f555")
-#TSS
-qplot(data=as.data.frame(pca$x), x=PC1, y=PC2, geom=c("point"), color=out$tss)
-
-qplot(data=as.data.frame(pca$x), x=PC1, y=PC2, geom=c("text"), color=out$tss, label = out$tss) +scale_color_manual(values=fortyColours)
-
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=out$tss))+
-  geom_point(size=2,alpha=0.5)+ #Size and alpha just for fun
-  scale_color_manual(values = fortyColours)+ #your colors here
-  theme_classic()
-
-#TSS after reduction 
-qplot(data=as.data.frame(pca$x), x=PC1, y=PC3, geom=c("point"), color=samples.matrixTSS$tss)
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC5,col=samples.matrixTSS$tss))+
-  geom_point(size=2,alpha=0.9)+ #Size and alpha just for fun
-  #scale_color_manual(values = thirteenColours)+ #your colors here
-  theme_classic()
-
-#type                               #or 5
-qplot(data=as.data.frame(pca$x), x=PC1, y=PC3, geom=c("point"), color=out$tumourType)
-
-#portion (nothin)
-qplot(data=as.data.frame(pca$x), x=PC3, y=PC2, geom=c("point"), color=out$portion)
-
-# receptor
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC3,col=samples.matrixRecep$receptSubtype))+
-  geom_point(size=2)+ #Size and alpha just for fun
-  scale_fill_brewer(palette="Set3")+ #your colors here
-  theme(legend.position="bottom")
-
-
-
-ggplot(data=as.data.frame(pca$x),aes(x=PC3,y=PC7,col=out$portion))+
-  geom_point(size=2,alpha=0.7)+ #Size and alpha just for fun
-  scale_color_manual(values = thirteenColours)+ #your colors here
-  theme_classic()
-
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC3,col=out$plate))+
-  geom_point(size=2,alpha=0.7)+ #Size and alpha just for fun
-  scale_color_manual(values = fortyColours)+ #your colors here
-  theme_classic()
-
-
-
-#### exploring PCs
-
-
-d <- data.frame(samples.matrixTSS, pca$x)
-p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:9))
-
-ggplot(p, aes(x=tumourType, y=score, fill=tumourType)) + 
-  geom_boxplot(outlier.colour=NaN) + 
-  #geom_jitter(alpha=0.5) + 
-  facet_wrap(~PC) + 
-  scale_fill_brewer(palette="Set2")
-
-ggplot(p, aes(x=portion, y=score, fill=portion)) + 
-  geom_boxplot(outlier.colour=NaN) + 
-  #geom_jitter(alpha=0.05) +   #uncomment this to see most dense group
-  facet_wrap(~PC) + 
-  scale_color_manual(values = thirteenColours)
-  #scale_fill_brewer(palette="Set3")
-
-ggplot(p, aes(x=tss, y=score, fill=tss)) + 
-  geom_boxplot(outlier.colour=NaN) + 
-  #geom_jitter(alpha=0.05) +   #uncomment this to see most dense group
-  facet_wrap(~PC) 
-
-ggplot(p, aes(x=sample, y=score, fill=sample)) + 
-  geom_boxplot(outlier.colour=NaN) + 
-  #geom_jitter(alpha=0.5) + 
-  facet_wrap(~PC) + 
-  scale_fill_brewer(palette="Set3")
-
-ggplot(p, aes(x=plate, y=score, fill=plate)) + 
-  geom_boxplot(outlier.colour=NaN) + 
-  #geom_jitter(alpha=0.5) + 
-  facet_wrap(~PC) + 
-  scale_fill_brewer(palette="Set3")
-
-ggplot(p, aes(x=receptSubtype, y=score, fill=receptSubtype)) + 
-  geom_boxplot(outlier.colour=NaN) + 
-  #geom_jitter(alpha=0.5) + 
-  facet_wrap(~PC) + 
-  scale_fill_brewer(palette="Set3")
-
-ggplot(p, aes(x=tss, y=score, fill=tss)) + 
-  geom_boxplot(outlier.colour=NaN) + 
-  #geom_jitter(alpha=0.5) + 
-  facet_wrap(~PC) 

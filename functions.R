@@ -150,3 +150,15 @@ addPAM50andNormal<-function(samples.matrix){
   
   return(list(samples.matrix=subdiagnosis, samplesToKeep=to_keep, normal_barcodes = paired))
 }  
+
+addOnlyTopTSS <- function(samples.matrix){
+  
+  #filtering out patient with neither Positive nor Negative
+  tss_above50samples <-c("BH","A2","E2","A8","D8","E9", "AR", "B6","AC" ) #660 patients
+  #tss_2 <-c("A2","E9") 
+  
+  samples.matrix <- samples.matrix[samples.matrix$tss %in% tss_above50samples,] 
+  #samples.matrix <- samples.matrix[samples.matrix$tss %in% tss_2,] 
+  
+  return (samples.matrix)
+}  
