@@ -11,6 +11,29 @@ getAutophagyGenes <- function(dataSE){
   return(newdataSE)
 } 
 
+addClinData<-function(sample.matrix){
+  
+  #clindata<-get(load("clinData_prepared.rda")) #old from elena' data
+  clindata <- get(load("cleaned_metadata.rda")) # new from 2 sources provided by Kristoffer
+  
+  samples.matrix_clinincal <- merge(samples.matrix, clindata, by="patient", all.x=TRUE) 
+  samples.matrix_clinincal <- samples.matrix_clinincal[order(samples.matrix_clinincal$myorder), ]
+  
+  # replacing NAs with Normal in relevant categories
+  samples.matrix_clinincal$substage <- ifelse(samples.matrix_clinincal$condition == "normal", "Normal", as.character(samples.matrix_clinincal$substage))
+  samples.matrix_clinincal$histology <- ifelse(samples.matrix_clinincal$condition == "normal", "Normal", as.character(samples.matrix_clinincal$histology))
+  samples.matrix_clinincal$morphology <- ifelse(samples.matrix_clinincal$condition == "normal", "Normal", as.character(samples.matrix_clinincal$morphology))
+  samples.matrix_clinincal$tumour_size <- ifelse(samples.matrix_clinincal$condition == "normal", "Normal", as.character(samples.matrix_clinincal$tumour_size))
+  samples.matrix_clinincal$nodes <- ifelse(samples.matrix_clinincal$condition == "normal", "Normal", as.character(samples.matrix_clinincal$nodes))
+  samples.matrix_clinincal$metastasis <- ifelse(samples.matrix_clinincal$condition == "normal", "Normal", as.character(samples.matrix_clinincal$metastasis))
+  
+  samples.matrix_clinincal$tumourStages <- ifelse(samples.matrix_clinincal$condition == "normal", "Normal", as.character(samples.matrix_clinincal$tumourStages))
+  
+  return(samples.matrix_clinincal)
+}
+
+
+
 renameMorph<- function(samples.matrix){
   
   morph<-as.vector(samples.matrix$tumourTypes)
