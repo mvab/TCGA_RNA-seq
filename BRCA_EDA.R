@@ -44,14 +44,7 @@ samples.matrix<-addClinData(samples.matrix)
 dataSE <- getAutophagyGenes(dataSE)
 
 
-# if used addOnlyTopTSS DO THIS:
-samples.matrix<-addOnlyTopTSS(samples.matrix)
-dim(samples.matrix)
-dataSE<- dataSE[,c(samples.matrix$barcode)]
-dim(dataSE)
-
 # if used addPAM50 DO THIS:
-
 #PAMNPout<-addPAM50andNormal(samples.matrix) #514
 PAMNPout<-addXtraPAMandNormal(samples.matrix)# (807 +104 -39) + 112 = 984
 samples.matrix<-PAMNPout$samples.matrix 
@@ -61,7 +54,11 @@ sampleTokeepSE <- PAMNPout$samplesToKeep
 dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
 dim(dataSE) 
 
-
+# if used addOnlyTopTSS DO THIS:
+samples.matrix<-addOnlyTopTSS(samples.matrix)
+dim(samples.matrix)
+dataSE<- dataSE[,c(samples.matrix$barcode)]
+dim(dataSE)
 
 ############# ad hoc testing 
 ################################
@@ -237,6 +234,9 @@ fortyColours2<-c("#3579b4","#c8c049","#8996da","#ee5345","#c84297",
                 "#4cee30","#d7b51c","#c96629","#472134","#36d1c8",
                 "#9f6f63","#ac8d3c","#a63dbd","#1db9d9","#10c399")
 
+customCol=c("#4e8fec","#e7ad8a", "#8f2ccf",
+            "#4cee30","#d7b51c","#c96629","#61789b","#36d1c8",
+            "#9f6f63","#ac8d3c","#a63dbd","#1db9d9","#10c399")
 
 # "#3579b4", normal
 substagesCols=c( "greenyellow", "green1","green4",
@@ -255,13 +255,15 @@ ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$metastasis))
         legend.title=element_blank())
 
 d <- data.frame(samples.matrix, pca$x)
-p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:9))
+p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:6))
 
-ggplot(p, aes(x=tss, y=score, fill=tss)) + 
+ggplot(p, aes(x=year_diagnosed, y=score, fill=year_diagnosed)) + 
   geom_boxplot(outlier.colour=NaN) + 
-  #geom_jitter(alpha=0.5) + 
+  geom_jitter(aes(color=year_diagnosed),alpha=0.3) + 
   facet_wrap(~PC) + 
-  scale_fill_manual(values=fortyColours)
+  #scale_fill_manual(values=customCol)+
+  theme(legend.position="bottom",
+        axis.text.x = element_text(angle = 90, hjust = 1))
   #scale_fill_brewer(palette="Set2")
 
 

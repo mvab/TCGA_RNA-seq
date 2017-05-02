@@ -52,8 +52,22 @@ addSampleData<-function(y, samples.matrix){
   y$samples$PAM50 <- as.factor(samples.matrix$PAM50)
   y$samples$morphology <- as.factor(samples.matrix$tumourTypes) # from sample lists!
   y$samples$stages <- as.factor(samples.matrix$tumourStages) # from sample lists!
+  y$samples$year <- as.factor(samples.matrix$year_diagnosed)
+  y$samples$tss <- as.factor(samples.matrix$tss)
+  y$samples$age <- as.factor(samples.matrix$ageGroups)
   
   y$samples$Group1 <- factor(paste( gsub(" ", "", samples.matrix$PAM50) , samples.matrix$tumourStages,sep="."))
+  
+  
+  #fixing NAs
+  y$samples$age <- as.character(y$samples$age)
+  y$samples[is.na(y$samples$age),]$age<-"Unknown"
+  y$samples[y$samples$age=="70+",]$age<-"70andUp"
+  y$samples$age <- as.factor(y$samples$age)
+  
+  y$samples$year <- as.character(y$samples$year)
+  y$samples[is.na(y$samples$year),]$year<-"Unknown"
+  y$samples$year <- as.factor(y$samples$year)
   
   
   ## making normal the baselayer
@@ -62,6 +76,7 @@ addSampleData<-function(y, samples.matrix){
   y$samples$morphology = relevel(y$samples$morphology, ref="Normal")
   y$samples$stages = relevel(y$samples$stages, ref="Normal")
   y$samples$Group1 = relevel(y$samples$Group1, ref = "Normal.Normal")
+
   
   return (y)
 }
@@ -75,8 +90,49 @@ addSampleData<-function(y, samples.matrix){
 #genes <- genes[!duplicated(genes$ENTREZID),]
 
 
+#editing genes names in dataSE: these 3 genes have entrzid instaead of geneame
+#2    155060 LOC155060
+#3      8225    GTPBP6
+#4     90288   EFCAB12
+
+head(rownames(dataSE))
+rownames(dataSE)[2]<-"LOC155060"
+rownames(dataSE)[3]<-"GTPBP6"
+rownames(dataSE)[4]<-"EFCAB12"
+
 # edgeR object
 dge <- DGEList(counts=dataSE) #here will be adding genes: genes = Ann)
+
+#### adding genes ######
+
+dge$genes <- data.frame(SYMBOL=rownames(dge))
+
+#library(mygene)
+#q <-queryMany(dge$genes$SYMBOL, scopes="symbol", fields=c("entrezgene"), species="human")
+
+#che k if got all the genes
+#'%nin%' <- Negate('%in%')
+#dge$genes$SYMBOL[dge$genes$SYMBOL%nin% q$query]
+
+#qtest<-queryMany(c("CSDAP1", "MGC2752","NCRNA00171"), scopes="symbol", fields=c("entrezgene","ensembl.gene"), species="human")
+# 3 genes taht dont have entrez
+#1 ENSG00000261614  117.6303      CSDAP1 ENSG00000261614
+#2 ENSG00000268784  117.6677     MGC2752 ENSG00000268784
+#3 ENSG00000229653  117.6849  NCRNA00171 ENSG00000229653
+#q[q$query=='CSDAP1',]$`_id`<-NA
+#q[q$query=='MGC2752',]$`_id`<-NA
+#q[q$query=='NCRNA00171',]$`_id`<-NA
+
+#remove duplicated with ENSembl id
+#q<-q[!(startsWith(q$`_id`, "ENSG0000") & !is.na(q$`_id`)),]
+#remove just duplicates
+#q<- subset(q, !duplicated(query))
+#update
+#dge$genes$ENTREZID <- q$entrezgene
+
+head(dge$genes)
+##################
+
 
 dge<-addSampleData(dge,samples.matrix)
 
@@ -93,6 +149,13 @@ keep.exprs <- rowSums(cpm > 1) >= 50        #A CPM value of 1 is equivalent to a
 dge <- dge[keep.exprs,, keep.lib.sizes=FALSE]
 dim(dge) #removed 1647
 
+#check autophagy in the current geneset
+#autophagy_genes<- as.vector(read.table("autopahagy_genes.txt", as.is = T, header = FALSE))$V1
+#shared <- intersect(autophagy_genes,rownames(dge))
+#print(paste0("Total number of genes in analysis: ", length(rownames(dge))))
+#print(paste0("Autophagy genes: ", length(shared)))
+
+
 # Scale normalisation: correct for library size
 #to match the between-sample distributions of gene counts
 #in terms of parameters such as quantiles
@@ -100,10 +163,9 @@ y <- calcNormFactors(dge)
 
 
 #trying MDS condition 
-condition <- substring(y$samples$condition,1,6) 
+#condition <- substring(y$samples$condition,1,6) 
 
-plotMDS(y, labels=condition, top=1000, col=ifelse(condition=="cancer","blue","red"),
-        gene.selection="common", prior.count = 5)
+#plotMDS(y, labels=condition, top=1000, col=ifelse(condition=="cancer","blue","red"),        gene.selection="common", prior.count = 5)
 
 #emergency PCA
 #pca <- prcomp(x=t(log.cpm), scale=TRUE, center=TRUE)
@@ -120,8 +182,16 @@ plotMDS(y, labels=condition, top=1000, col=ifelse(condition=="cancer","blue","re
 
 
 
+
+
 design <- model.matrix(~0+condition, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
 design <- model.matrix(~0+PAM50+condition, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
+design <- model.matrix(~PAM50 + PAM50:age  +morphology , data=y$samples) #nested interaction # makes all possible pairings (alt to manual contarsts)
+
+design <- model.matrix(~0 + PAM50 +condition + age + stages  + morphology + tss + year , data=y$samples) #nested interaction # makes all possible pairings (alt to manual contarsts)
+design <- model.matrix(~0 + stages  +condition + PAM50 , data=y$samples) #nested interaction # makes all possible pairings (alt to manual contarsts)
+
+
 design <- model.matrix(~PAM50+condition, data=y$samples) 
 design <- model.matrix(~morphology+condition, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
 design <- model.matrix(~0+stages+condition, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
@@ -131,6 +201,7 @@ colnames(design) <- gsub("Group1", "", colnames(design))
 colnames(design) <- gsub("PAM50", "", colnames(design))
 colnames(design) <- gsub("morphology", "", colnames(design))
 colnames(design) <- gsub("stages", "", colnames(design))
+colnames(design) <- gsub(":age", ":", colnames(design))
 
 
 colnames(design) <- gsub(" ", "", colnames(design))
@@ -139,6 +210,7 @@ colnames(design) <- gsub("-", "", colnames(design))
 
 
 colnames(design)
+
 
 # contr matrices
 #######       
@@ -198,11 +270,12 @@ contr.matrix <- makeContrasts( LumAvsLumB = LuminalA - LuminalB,     #unique com
 #####
 
 
+
 DEA_limmaVoom <- function(y, design, contr.matrix=NULL) {
   #the voom transformation is applied to the normalized and filtered DGEList object:
   #Use voom() to convert the read counts to log2-cpm, with associated weights, 
   #ready for linear modelling:
-  par(mfrow=c(2,2))
+  #par(mfrow=c(2,2))
   v <- voom(y, design, plot=FALSE); print ("done Voom")
   
   #After this, the usual limma pipelines for differential expression can be applied
@@ -228,6 +301,7 @@ DEA_limmaVoom <- function(y, design, contr.matrix=NULL) {
 
 DEA_limmaVoom_out<-DEA_limmaVoom(y,design,contr.matrix)
 fit<-DEA_limmaVoom_out$fit
+
 
 
 DEA_MTC_save <-function(fit, my_coef, logFC, FDR){
@@ -278,6 +352,34 @@ DEA_MTC_save <-function(fit, my_coef, logFC, FDR){
 }
 
 
+
+#set parameters!
+set_logFC=1
+set_FDR=0.05
+
+colnames(design)
+#it thinks that <40 is the base factor for age group --- is that OK?
+
+LumA_age4049 <-DEA_MTC_save(fit, "LuminalA:4049", set_logFC , set_FDR)$tt
+LumA_age5059 <-DEA_MTC_save(fit, "LuminalA:5059", set_logFC , set_FDR)$tt
+LumA_age6069 <-DEA_MTC_save(fit, "LuminalA:6069", set_logFC , set_FDR)$tt
+LumA_age70_up <-DEA_MTC_save(fit, "LuminalA:70+", set_logFC , set_FDR)$tt
+
+dt<-decideTests(fit, p.value=set_FDR, lfc= set_logFC, adjust.method="BH")
+my_coef1 = c("LuminalA:4049", "LuminalA:5059", "LuminalA:6069", "LuminalA:70+")
+my_coef2 = c("LuminalB:4049", "LuminalB:5059", "LuminalB:6069", "LuminalB:70+")
+my_coef3 = c("BasalLike:4049", "BasalLike:5059", "BasalLike:6069", "BasalLike:70+")
+my_coef4 = c("HER2enriched:4049", "HER2enriched:5059", "HER2enriched:6069", "HER2enriched:70+")
+my_coef5 = c("NormalLike:4049", "NormalLike:5059", "NormalLike:6069", "NormalLike:70+")
+
+print (summary(dt)[,c(my_coef1)])
+print (summary(dt)[,c(my_coef2)])
+print (summary(dt)[,c(my_coef3)])
+print (summary(dt)[,c(my_coef4)])
+print (summary(dt)[,c(my_coef5)])
+
+
+
 #set parameters!
 set_logFC=2
 set_FDR=0.001
@@ -305,6 +407,7 @@ NormalLikevsNormal_tt <-DEA_MTC_save(fit, "NormalLikevsNormal", set_logFC , set_
 
 ## decideTests
 dt <-DEA_MTC_save(fit, "LumAvsLumB", set_logFC , set_FDR)$dt #coef can be anything, report dt fot all anyway
+summary(dt)
 
 ## topTable stages model
 set_logFC=1
@@ -359,6 +462,10 @@ summary(dt)
 
 
 # PVALUES AFTER MTC
+
+getVarname<-function(var){
+  deparse(substitute(var))
+}
 
 ### STAGES
 plot1 <- qplot(data=Stage1vsNorm_tt  , main = "Stage1vsNorm_tt  ", x=P.Value, geom="histogram", color=I("black"), fill=I("hotpink"), binwidth=0.05)
@@ -480,7 +587,7 @@ all_genesDE <- unique(sort(c(getGeneNames(LumAvsLumB_tt,'up'),getGeneNames(LumAv
                              getGeneNames(HER2vsNormal_tt,'up'),getGeneNames(HER2vsNormal_tt,'down'),
                              #
                              getGeneNames(NormalLikevsNormal_tt,'up'),getGeneNames(NormalLikevsNormal_tt,'down'))))
-
+                             # )))
 length(all_genesDE)
 
 ### quick compate with autophagy
