@@ -184,17 +184,11 @@ y <- calcNormFactors(dge)
 
 
 
-design <- model.matrix(~0+condition, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
-design <- model.matrix(~0+PAM50+condition, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
-design <- model.matrix(~PAM50 + PAM50:age  +morphology , data=y$samples) #nested interaction # makes all possible pairings (alt to manual contarsts)
+design <- model.matrix(~0+PAM50, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
+design <- model.matrix(~tss+PAM50  +morphology + stages + age +year , data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
 
-design <- model.matrix(~0 + PAM50 +condition + age + stages  + morphology + tss + year , data=y$samples) #nested interaction # makes all possible pairings (alt to manual contarsts)
-design <- model.matrix(~0 + stages  +condition + PAM50 , data=y$samples) #nested interaction # makes all possible pairings (alt to manual contarsts)
+design <- model.matrix(~0 + PAM50 + condition + age + stages  + morphology + tss + year , data=y$samples) #nested interaction # makes all possible pairings (alt to manual contarsts)
 
-
-design <- model.matrix(~PAM50+condition, data=y$samples) 
-design <- model.matrix(~morphology+condition, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
-design <- model.matrix(~0+stages+condition, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
 design <- model.matrix(~0+Group1, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
 
 colnames(design) <- gsub("Group1", "", colnames(design))
@@ -207,7 +201,7 @@ colnames(design) <- gsub(":age", ":", colnames(design))
 colnames(design) <- gsub(" ", "", colnames(design))
 colnames(design) <- gsub("-l", "L", colnames(design))
 colnames(design) <- gsub("-", "", colnames(design))
-
+#colnames(design) <- gsub(":t", "t", colnames(design))
 
 colnames(design)
 
@@ -231,10 +225,10 @@ contr.matrix <- makeContrasts(Basal_st1vs4= BasalLike.stage1-BasalLike.stage4,
                               levels = colnames(design)) 
                               ####HERE!
                               
-contr.matrix <- makeContrasts( Stage1vsNorm = stage1 - Normal,  #unique comparisons 15
+contr.matrix <- makeContrasts( Stage1vsNorm = stage1 - Normal,  
                                Stage2vsNorm = stage2 - Normal,
                                Stage3vsNorm = stage3 - Normal,
-                               Stage4vsNorm = stage4 - Normal,
+                               Stage4vsNorm = stage4- Normal,
                                
                                Stage1vsStage2 = stage1 - stage2,
                                Stage1vsStage3 = stage1 - stage3,
@@ -245,7 +239,7 @@ contr.matrix <- makeContrasts( Stage1vsNorm = stage1 - Normal,  #unique comparis
                                
                                levels = colnames(design)) 
 
-
+######
 contr.matrix <- makeContrasts( LumAvsLumB = LuminalA - LuminalB,     #unique comparisons 15
                                LumAvsBasal = LuminalA - BasalLike,
                                LumAvsHER2 = LuminalA - HER2enriched,
@@ -271,6 +265,7 @@ contr.matrix <- makeContrasts( LumAvsLumB = LuminalA - LuminalB,     #unique com
 
 
 
+# eBayes
 DEA_limmaVoom <- function(y, design, contr.matrix=NULL) {
   #the voom transformation is applied to the normalized and filtered DGEList object:
   #Use voom() to convert the read counts to log2-cpm, with associated weights, 
@@ -287,7 +282,18 @@ DEA_limmaVoom <- function(y, design, contr.matrix=NULL) {
   }
   #empirical Bayes moderation is carried out by borrowing information across all genes
   #to obtain more precise estimates of gene-wise variability
+  
   efit <- eBayes(vfit); print ("done eBayes")
+  
+  # for stricter filtering on significance
+  
+  # The treat method can be used to calculate p-values from
+  # empirical Bayes moderated t-statistics with a minimum log-FC requirement
+  #when testing requires genes to have a log-FC that is significantly 
+  #greater than 1 (equivalent to a 2-fold difference between cell types on the original scale)
+  #tfit <- treat(vfit, lfc=1) ; print ("done treat")
+  #dt <- decideTests(tfit)
+  
 
   #The model's residual variances are plotted against average expression values
  # plotSA(efit,main="plotSA()")
@@ -298,26 +304,13 @@ DEA_limmaVoom <- function(y, design, contr.matrix=NULL) {
  
   return(list(fit=efit, v=v)) #change if choose stricter option
 }  
-
-DEA_limmaVoom_out<-DEA_limmaVoom(y,design,contr.matrix)
-fit<-DEA_limmaVoom_out$fit
-
-
-
 DEA_MTC_save <-function(fit, my_coef, logFC, FDR){
   
   #For a quick look at differential expression levels, the number of significantly up-
   #and down-regulated genes can be summarised in a table.
   dt<-decideTests(fit, p.value=FDR, lfc= logFC, adjust.method="BH")
   
-  # for stricter filtering on significance
-  
-      # The treat method can be used to calculate p-values from
-      # empirical Bayes moderated t-statistics with a minimum log-FC requirement
-      #when testing requires genes to have a log-FC that is significantly 
-      #greater than 1 (equivalent to a 2-fold difference between cell types on the original scale)
-  #tfit <- treat(vfit, lfc=1) 
-  #dt <- decideTests(tfit)
+
   print (my_coef)
   print (summary(dt)[,c(my_coef)])
   
@@ -351,7 +344,98 @@ DEA_MTC_save <-function(fit, my_coef, logFC, FDR){
   return(list(tt=tt, dt=dt))
 }
 
+DEA_limmaVoom_out<-DEA_limmaVoom(y,design,contr.matrix)
+fit<-DEA_limmaVoom_out$fit
 
+
+#Treat
+DEA_limmaVoom <- function(y, design, contr.matrix=NULL) {
+  #the voom transformation is applied to the normalized and filtered DGEList object:
+  #Use voom() to convert the read counts to log2-cpm, with associated weights, 
+  #ready for linear modelling:
+  #par(mfrow=c(2,2))
+  v <- voom(y, design, plot=FALSE); print ("done Voom")
+  
+  #After this, the usual limma pipelines for differential expression can be applied
+  #fit a separate model to the expression values for each gene
+  vfit <- lmFit(v, design); print ("done lmFit")
+  if (!is.null(contr.matrix)){
+    print ("Using contrast matrix... ")
+    vfit <- contrasts.fit(vfit, contrasts=contr.matrix)  
+  }
+  #empirical Bayes moderation is carried out by borrowing information across all genes
+  #to obtain more precise estimates of gene-wise variability
+  
+  #efit <- eBayes(vfit); print ("done eBayes")
+  
+  # for stricter filtering on significance
+  
+  # The treat method can be used to calculate p-values from
+  # empirical Bayes moderated t-statistics with a minimum log-FC requirement
+  #when testing requires genes to have a log-FC that is significantly 
+  #greater than 1 (equivalent to a 2-fold difference between cell types on the original scale)
+  tfit <- treat(vfit, lfc=1) ; print ("done treat")
+  #dt <- decideTests(tfit)
+  
+  
+  #The model's residual variances are plotted against average expression values
+  # plotSA(efit,main="plotSA()")
+  
+  #testing FDR p-val distribution #always check p-val disrubution to make sure FDR worked
+  #hist(as.vector(as.matrix(efit$p.value[,c(1:ncol(efit$p.value))])), col="red", main="P-values before MTC") #NBBBB not sure if this is the right p-vals
+  par(mfrow=c(1,1))
+  
+  return(list(fit=tfit, v=v)) #change if choose stricter option
+}  
+DEA_MTC_save <-function(fit, my_coef, logFC, FDR){
+  
+  #For a quick look at differential expression levels, the number of significantly up-
+  #and down-regulated genes can be summarised in a table.
+  dt<-decideTests(fit, p.value=FDR, lfc= logFC, adjust.method="BH")
+  
+  
+  print (my_coef)
+  print (summary(dt)[,c(my_coef)])
+  
+  
+  #tt <- topTable(fit, coef=my_coef, adjust='BH', n=Inf)
+  tt <- topTreat(fit, coef=my_coef, adjust='BH', n=Inf)
+  
+  #if toy want acceess to df of genes
+  #up <- data.frame(rownames(tt[tt$logFC >= logFC & tt$adj.P.Val < FDR, ]))
+  #down <- data.frame(rownames(tt[tt$logFC <= -logFC & tt$adj.P.Val < FDR, ]))
+  #colnames(up) <- as.character("up")
+  #colnames(down) <- as.character("down")
+  
+  #tt <- subset(tt,abs(tt$logFC) >= logFC & tt$adj.P.Val < FDR)
+  index.up <- which(tt$logFC >= logFC & tt$adj.P.Val < FDR)
+  index.down <- which(tt$logFC <= -logFC & tt$adj.P.Val < FDR)
+  direction <- c()
+  direction[index.up] <- "up"
+  direction[index.down] <- "down"
+  direction[!(1:nrow(tt) %in% union(index.up,index.down))] <- "no DE"
+  tt <- cbind(tt,direction)
+  #final <- list(up, down)
+  
+  #save for the specified coefficient
+  #write.csv(tt, "both_PAM_DEG_23-04.csv", quote = FALSE)
+  up <- data.frame(rownames(tt[tt$direction == "up", ]))
+  down <- data.frame(rownames(tt[tt$direction == "down", ]))
+  
+  setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/DEA")
+  write.table(up, paste0(my_coef,"_up.txt"), sep = "\t",col.names = FALSE,row.names = FALSE, quote = FALSE)
+  write.table(down, paste0(my_coef,"_down.txt"),sep = "\t", col.names = FALSE, row.names = FALSE, quote = FALSE)
+  
+  return(list(tt=tt, dt=dt))
+}
+
+DEA_limmaVoom_out<-DEA_limmaVoom(y,design,contr.matrix)
+fit<-DEA_limmaVoom_out$fit
+
+
+
+
+############
 
 #set parameters!
 set_logFC=1
@@ -378,11 +462,15 @@ print (summary(dt)[,c(my_coef3)])
 print (summary(dt)[,c(my_coef4)])
 print (summary(dt)[,c(my_coef5)])
 
-
+########
 
 #set parameters!
-set_logFC=2
-set_FDR=0.001
+set_logFC=1
+set_FDR=0.05
+
+## decideTests        # here coef does not matter
+dt <-DEA_MTC_save(fit, 2, set_logFC , set_FDR)$dt #coef can be anything, report dt for all anyway
+summary(dt)
 
 ## topTable PAM50 model
 LumAvsLumB_tt <-DEA_MTC_save(fit, "LumAvsLumB", set_logFC , set_FDR)$tt
@@ -405,9 +493,7 @@ HER2vsNormal_tt <-DEA_MTC_save(fit, "HER2vsNormal", set_logFC , set_FDR)$tt
 #
 NormalLikevsNormal_tt <-DEA_MTC_save(fit, "NormalLikevsNormal", set_logFC , set_FDR)$tt
 
-## decideTests
-dt <-DEA_MTC_save(fit, "LumAvsLumB", set_logFC , set_FDR)$dt #coef can be anything, report dt fot all anyway
-summary(dt)
+
 
 ## topTable stages model
 set_logFC=1
@@ -449,17 +535,6 @@ summary(dt)
 
 
 #### visualisation of limma results####
-
-## manual volcano #### NEEDS fixing
-
-#ggplot(LumAvsBasal_tt, aes(x=logFC, y=-log10(P.Value),col=p.adjust(P.Value, method="BH")<0.001)) +
-#  geom_point(alpha=0.25) + 
-#  geom_vline(aes(xintercept=2), col="blue") + 
-#  geom_vline(aes(xintercept=-2), col="blue") + 
-#  scale_color_manual(values=c("black", "red")) + 
-#  theme(legend.position="none")
-
-
 
 # PVALUES AFTER MTC
 
@@ -506,20 +581,6 @@ grid.arrange(plot1, plot2,plot3,plot4,plot5,plot6,plot7,plot8,plot9,plot10, plot
 
 
 
-
-#volcano plot ########## RUN on server#####
-
-#dataDEG <- read.csv("both_PAM_DEG_23-04.csv", sep=",", quote = "\n", row.names = 1)
-
-TCGAVisualize_volcano(dataDEG$logFC,dataDEG$adj.P.Val,
-                      filename = "volcanoplot_both_PAM_DEG_23-04.png",
-                      x.cut = 5,y.cut = 10^-7,
-                      names = rownames(dataDEG),
-                      color = c("black","red","darkgreen"),
-                      names.size = 2,
-                      xlab = " Gene expression fold change (Log2)",
-                      legend = "State",
-                      title = "Volcano plot",width = 6,height = 4)#
 
 
 
@@ -591,7 +652,7 @@ all_genesDE <- unique(sort(c(getGeneNames(LumAvsLumB_tt,'up'),getGeneNames(LumAv
 length(all_genesDE)
 
 ### quick compate with autophagy
-autophagy_genes<- as.vector(read.table("autopahagy_genes.txt", as.is = T, header = FALSE))$V1
+autophagy_genes<- as.vector(read.table("../autopahagy_genes.txt", as.is = T, header = FALSE))$V1
 shared <- intersect(autophagy_genes,all_genesDE)
 print(paste0("Total number of DE genes: ", length(all_genesDE)))
 print(paste0("Autophagy genes: ", length(shared)))
@@ -605,11 +666,6 @@ dim(all_geneExp)
 #View(all_geneExp)
 
 #write.table(all_L, paste0(my.dir, my.pattern, "_DE_Limma.txt"), sp = "\t", quote = FALSE)
-library(gplots)
-mycol <- colorpanel(1000,"blue","white","red") 
-heatmap.2(all_geneExp , scale="none", labRow=all_genesDE, 
-          labCol=y$samples$PAM50, col=mycol, trace="none", density.info="none", 
-          margin=c(8,6), lhei=c(2,10), dendrogram="column")
 
 
 
@@ -642,8 +698,6 @@ annColour <-list(
   stages=tumourStgCol
   )
 ######
-
-
 pheatmap::pheatmap(mat = as.matrix(all_geneExp), color = brewer.pal(name = "YlGnBu", n = 9),
                    clustering_distance_rows = 'manhattan', 
                    clustering_distance_cols = 'manhattan', 
@@ -680,6 +734,9 @@ library(VennDiagram)
 par(mfrow=c(1,1))
 # with model 0+PAM50+condition all dt are the same
 colnames(summary(dt))
+
+plot(venneuler(dt[,c(5,9,12,14,15)]))
+
 vennDiagram(dt[,c(5,9,12,14,15)], circle.col=c("turquoise", "salmon", "blue", "yellow", "green"))
 vennDiagram(dt[,c(5,9,15)], circle.col=c("turquoise", "salmon", "yellow"),cex=0.8)
 
@@ -726,10 +783,94 @@ head(Stage3vsStage4_tt[Stage3vsStage4_tt$direction!="no DE", ])
 #To summarise results for all genes visually, mean-difference plots, which display log-FCs
 #from the linear model fit against the average log-CPM values can be generated using 
 #the plotMD function, with the differenti3ally expressed genes highlighted.
-plotMD(efit, column=1, status=dt[,5], main=colnames(efit)[5])#, xlim=c(-8,13))
-plotMD(efit, column=1, status=dt[,10], main=colnames(efit)[10])#, xlim=c(-8,13))
-plotMD(efit, column=1, status=dt[,15], main=colnames(efit)[15])#, xlim=c(-8,13))
+
+colnames(dt)
+summary(dt)
+par(mfrow=c(1,5))
+
+#vs Normal
+plotMD(fit, column=5, status=dt[,5], main=colnames(fit)[5], ylim=c(-10,10))
+plotMD(fit, column=9, status=dt[,9], main=colnames(fit)[9], ylim=c(-10,10))
+plotMD(fit, column=12, status=dt[,12], main=colnames(fit)[12], ylim=c(-10,10))
+plotMD(fit, column=14, status=dt[,14], main=colnames(fit)[14], ylim=c(-10,10))
+plotMD(fit, column=15, status=dt[,15], main=colnames(fit)[15], ylim=c(-10,10))
+
+#vs LumA
+
+plotMD(fit, column=1, status=dt[,1], main=colnames(fit)[1], ylim=c(-10,10))
+plotMD(fit, column=2, status=dt[,2], main=colnames(fit)[2], ylim=c(-10,10))
+plotMD(fit, column=3, status=dt[,3], main=colnames(fit)[3], ylim=c(-10,10))
+plotMD(fit, column=4, status=dt[,4], main=colnames(fit)[4], ylim=c(-10,10))
+plotMD(fit, column=5, status=dt[,5], main=colnames(fit)[5], ylim=c(-10,10))
+
+#vs LumB
+plotMD(fit, column=1, status=dt[,1], main=colnames(fit)[1], ylim=c(-10,10))
+plotMD(fit, column=6, status=dt[,6], main=colnames(fit)[6], ylim=c(-10,10))
+plotMD(fit, column=7, status=dt[,7], main=colnames(fit)[7], ylim=c(-10,10))
+plotMD(fit, column=8, status=dt[,8], main=colnames(fit)[8], ylim=c(-10,10))
+plotMD(fit, column=9, status=dt[,9], main=colnames(fit)[9], ylim=c(-10,10))
+
+#vs Basal
+plotMD(fit, column=2, status=dt[,2], main=colnames(fit)[2], ylim=c(-10,10))
+plotMD(fit, column=6, status=dt[,6], main=colnames(fit)[6], ylim=c(-10,10))
+plotMD(fit, column=10, status=dt[,10], main=colnames(fit)[10], ylim=c(-10,10))
+plotMD(fit, column=11, status=dt[,11], main=colnames(fit)[11], ylim=c(-10,10))
+plotMD(fit, column=12, status=dt[,12], main=colnames(fit)[12], ylim=c(-10,10))
+
+#vs HER2
+plotMD(fit, column=3, status=dt[,3], main=colnames(fit)[3], ylim=c(-10,10))
+plotMD(fit, column=7, status=dt[,7], main=colnames(fit)[7], ylim=c(-10,10))
+plotMD(fit, column=9, status=dt[,9], main=colnames(fit)[9], ylim=c(-10,10))
+plotMD(fit, column=13, status=dt[,13], main=colnames(fit)[13], ylim=c(-10,10))
+plotMD(fit, column=14, status=dt[,14], main=colnames(fit)[14], ylim=c(-10,10))
+
+#vs NormalLike
+plotMD(fit, column=4, status=dt[,4], main=colnames(fit)[4], ylim=c(-10,10))
+plotMD(fit, column=8, status=dt[,8], main=colnames(fit)[8], ylim=c(-10,10))
+plotMD(fit, column=11, status=dt[,11], main=colnames(fit)[11], ylim=c(-10,10))
+plotMD(fit, column=13, status=dt[,13], main=colnames(fit)[13], ylim=c(-10,10))
+plotMD(fit, column=15, status=dt[,15], main=colnames(fit)[15], ylim=c(-10,10))
 
 
+
+#MAplot
+ggplot(BasalvsNormal_tt, aes(x=AveExpr, y=logFC, col=adj.P.Val<0.05)) +
+  geom_point(alpha=0.25) + 
+  geom_hline(aes(yintercept=2), col="blue") + 
+  geom_hline(aes(yintercept=-2), col="blue") + 
+  scale_color_manual(values=c("black", "red")) +
+  ylim(-10,10)+
+  theme(legend.position="none")+
+  ggtitle(paste0(getVarname(BasalvsNormal_tt)))+
+  xlab("Average Log Expression")
+
+#volcano version 1
+ggplot(LumBvsNormal_tt, aes(x=logFC, y=-log10(P.Value), col=adj.P.Val<0.05)) +
+  geom_point(alpha=0.25) + 
+  geom_vline(aes(xintercept=2), col="blue") + 
+  geom_vline(aes(xintercept=-2), col="blue") + 
+  scale_color_manual(values=c("black", "red")) + 
+  theme(legend.position="none")
+
+
+#volcano version 2
+this_data =LumAvsNormal_tt
+this_data$Genes <-rownames(this_data)
+# Make a basic volcano plot
+with(this_data, plot(logFC, -log10(P.Value), pch=20, main="Volcano plot" ))#, xlim=c(-3,4), ylim=c(0,5)) )
+
+# Add colored points: red if padj<0.05, orange of log2FC>1, green if both)
+with(subset(this_data, adj.P.Val<.05 ), points(logFC, -log10(P.Value), pch=20, col="blue"))
+with(subset(this_data, abs(logFC)>2), points(logFC, -log10(P.Value), pch=20, col="orange"))
+with(subset(this_data, adj.P.Val<.05 & abs(logFC)>2), points(logFC, -log10(P.Value), pch=20, col="red"))
+abline(h = -log10(0.05), col = "green3", lty = 2) # adj Pvalue
+abline(v = c(-2, 2), col = "blue", lty = 2) #logGC
+mtext("adj pval\n = 0.05", side = 2, at = -log10(0.01), cex = 0.6, line = 0.5, las = 1)
+mtext(c(paste("-2 fold"), paste("+2 fold")), side = 3, at = c(-2, 2), cex = 0.6, line = 0.2)
+
+
+# Label points with the textxy function from the calibrate plot
+#library(calibrate)
+with(subset(this_data, adj.P.Val<.05 & abs(logFC)>9), textxy(logFC, -log10(P.Value), labs=Genes, cex=.6))
 
 
