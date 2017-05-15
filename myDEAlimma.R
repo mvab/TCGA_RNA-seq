@@ -103,7 +103,7 @@ rownames(dataSE)[4]<-"EFCAB12"
 # edgeR object
 dge <- DGEList(counts=dataSE) #here will be adding genes: genes = Ann)
 
-#### adding genes ######
+#### adding genes: SKIP THIS ######
 
 dge$genes <- data.frame(SYMBOL=rownames(dge))
 
@@ -244,23 +244,33 @@ contr.matrix <- makeContrasts( LumAvsLumB = LuminalA - LuminalB,     #unique com
                                LumAvsBasal = LuminalA - BasalLike,
                                LumAvsHER2 = LuminalA - HER2enriched,
                                LumAvsNormLike = LuminalA - NormalLike,
-                               LumAvsNormal = LuminalA - Normal,
+                               LumAvsNormal = LuminalA ,#- Normal,
                                #
                                LumBvsBasal = LuminalB - BasalLike,
                                LumBvsHER2 = LuminalB - HER2enriched,
                                LumBvsNormLike = LuminalB - NormalLike,
-                               LumBvsNormal = LuminalB - Normal,
+                               LumBvsNormal = LuminalB ,#- Normal,
                                #
                                BasalvsHER2 = BasalLike- HER2enriched,
                                BasalvsNormLike = BasalLike - NormalLike,
-                               BasalvsNormal = BasalLike - Normal,
+                               BasalvsNormal = BasalLike ,#- Normal,
                                #
                                HER2vsNormLike = HER2enriched - NormalLike,
-                               HER2vsNormal = HER2enriched - Normal,
+                               HER2vsNormal = HER2enriched ,#- Normal,
                                #
-                               NormalLikevsNormal = NormalLike - Normal,
+                               NormalLikevsNormal =NormalLike ,#- Normal,
 
                                levels = colnames(design)) 
+
+
+
+contr.matrix <- makeContrasts(  BasalvsLumA = BasalLike- LuminalA,
+                                BasalvsLumB = BasalLike- LuminalB,
+                                BasalvsHER2 = BasalLike- HER2enriched,
+                                BasalvsNormLike = BasalLike - NormalLike,
+                                BasalvsNormal = BasalLike - Normal,
+                                levels = colnames(design)) 
+
 #####
 
 
@@ -423,8 +433,8 @@ DEA_MTC_save <-function(fit, my_coef, logFC, FDR){
   down <- data.frame(rownames(tt[tt$direction == "down", ]))
   
   setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/DEA")
-  write.table(up, paste0(my_coef,"_up.txt"), sep = "\t",col.names = FALSE,row.names = FALSE, quote = FALSE)
-  write.table(down, paste0(my_coef,"_down.txt"),sep = "\t", col.names = FALSE, row.names = FALSE, quote = FALSE)
+  #write.table(up, paste0(my_coef,"_up.txt"), sep = "\t",col.names = FALSE,row.names = FALSE, quote = FALSE)
+  #write.table(down, paste0(my_coef,"_down.txt"),sep = "\t", col.names = FALSE, row.names = FALSE, quote = FALSE)
   
   return(list(tt=tt, dt=dt))
 }
@@ -484,6 +494,9 @@ LumBvsHER2_tt <-DEA_MTC_save(fit, "LumBvsHER2", set_logFC , set_FDR)$tt
 LumBvsNormLike_tt <-DEA_MTC_save(fit, "LumBvsNormLike", set_logFC , set_FDR)$tt
 LumBvsNormal_tt <-DEA_MTC_save(fit, "LumBvsNormal", set_logFC , set_FDR)$tt
 #
+
+BasalvsLumA_tt <-DEA_MTC_save(fit, "BasalvsLumA", set_logFC , set_FDR)$tt
+BasalvsLumB_tt <-DEA_MTC_save(fit, "BasalvsLumB", set_logFC , set_FDR)$tt
 BasalvsHER2_tt <-DEA_MTC_save(fit, "BasalvsHER2", set_logFC , set_FDR)$tt
 BasalvsNormLike_tt <-DEA_MTC_save(fit, "BasalvsNormLike", set_logFC , set_FDR)$tt
 BasalvsNormal_tt <-DEA_MTC_save(fit, "BasalvsNormal", set_logFC , set_FDR)$tt
@@ -657,7 +670,9 @@ shared <- intersect(autophagy_genes,all_genesDE)
 print(paste0("Total number of DE genes: ", length(all_genesDE)))
 print(paste0("Autophagy genes: ", length(shared)))
 
+model1 <-shared #with intercept 213, "DAPK2" is unique in this
 
+model2<-shared #with blocking 218,  "SYP"      "MRC1"     "ITGA11"   "FOXO4"    "CFTR"     "ATP6V1B1" uniwue in this
 
 # Get expression values
 v<-DEA_limmaVoom_out$v

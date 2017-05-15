@@ -65,7 +65,7 @@ for (name in names(autophagy_genes)) {
 save(gene_functions, file="autophagy_genes_functions.rda")
 
 
-auto_matrix<-as.matrix(gene_functions)
+auto_matrix<-as.data.frame(gene_functions)
 auto_matrix$genes <-rownames(auto_matrix)
 rownames(auto_matrix)<-NULL
 dim(auto_matrix)
