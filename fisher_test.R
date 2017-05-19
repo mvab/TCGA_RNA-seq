@@ -1,91 +1,72 @@
+#rm(list=ls(all=TRUE))
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/DEA/testing")
 
-n_matrix <- matrix(data=0, 6, 6,
-                   dimnames = list(c("LumA", "LumB", "Basal", "HER2", "Norm-like", "Normal"),
-                                  c("LumA", "LumB", "Basal", "HER2", "Norm-like", "Normal")))
-class(n_matrix)<-"numeric"            
-k_matrix <- matrix(data=0, 6, 6,
-                   dimnames = list(c("LumA", "LumB", "Basal", "HER2", "Norm-like", "Normal"),
-                                   c("LumA", "LumB", "Basal", "HER2", "Norm-like", "Normal")))
-class(k_matrix)<-"numeric"  
+DEgenes<- get(load("stages_DE_genes_numbers3.rda"))
+autoALL_DEgenes<- get(load("stages_DE_AUTO_genes_numbers3.rda"))
+autoCORE_DEgenes<- get(load("stages_DE_AUTOCORE_genes_numbers3.rda"))
+autoTF_DEgenes<- get(load("stages_DE_AUTOTF_genes_numbers3.rda"))
 
-pval_matrix <- matrix(data=0, 6, 6,
-                   dimnames = list(c("LumA", "LumB", "Basal", "HER2", "Norm-like", "Normal"),
-                                   c("LumA", "LumB", "Basal", "HER2", "Norm-like", "Normal")))
-class(pval_matrix)<-"numeric"  
+N <- 15804 # The total number of genes :17372 ##### THIS WILL CHANGE
 
-odds_matrix <- matrix(data=0, 6, 6,
-                   dimnames = list(c("LumA", "LumB", "Basal", "HER2", "Norm-like", "Normal"),
-                                   c("LumA", "LumB", "Basal", "HER2", "Norm-like", "Normal")))
-class(odds_matrix)<-"numeric"  
+# add columns for enrichment, p.val, p.val.adj in autophagy df
+extra_colnames<-c("up_oddsratio", "down_oddsratio", "both_oddsratio",
+                    "up_pval","down_pval","both_pval",
+                    "up_pval.adj","down_pval.adj","both_pval.adj")
 
 
-
-
-
-getIndexOfPair<-function(row, col, matrix){
-  row_ind<-match(row, rownames(matrix))
-  col_ind<-match(col, colnames(matrix))
-  return (list(row=row_ind, col=col_ind))
-}
-index<-getIndexOfPair("LumB", "HER2", n_matrix)
-
-n_matrix["LumA", "LumB"]<-86
-n_matrix["LumA", "Basal"]<-1219
-n_matrix["LumA", "HER2"]<-448
-n_matrix["LumA", "Norm-like"]<-360
-n_matrix["LumA", "Normal"]<-1402
-n_matrix["LumB", "Basal"]<-1082
-n_matrix["LumB", "HER2"]<-372
-n_matrix["LumB", "Norm-like"]<-902
-n_matrix["LumB", "Normal"]<-2085
-n_matrix["Basal", "HER2"]<-720
-n_matrix["Basal", "Norm-like"]<-814
-n_matrix["Basal", "Normal"]<-2002
-n_matrix["HER2", "Norm-like"]<-647
-n_matrix["HER2", "Normal"]<-2016
-n_matrix["Norm-like", "Normal"]<-486
-
-k_matrix["LumA", "LumB"]<-2
-k_matrix["LumA", "Basal"]<-44
-k_matrix["LumA", "HER2"]<-16
-k_matrix["LumA", "Norm-like"]<-10
-k_matrix["LumA", "Normal"]<-45
-k_matrix["LumB", "Basal"]<-41
-k_matrix["LumB", "HER2"]<-15
-k_matrix["LumB", "Norm-like"]<-36
-k_matrix["LumB", "Normal"]<-72
-k_matrix["Basal", "HER2"]<-25
-k_matrix["Basal", "Norm-like"]<-34
-k_matrix["Basal", "Normal"]<-73
-k_matrix["HER2", "Norm-like"]<-31
-k_matrix["HER2", "Normal"]<-79
-k_matrix["Norm-like", "Normal"]<-16
-  
-
-k_matrix
-n_matrix
-
-for (i in 1:6){
-  for (j in 1:6){
-    x<-n_matrix[i,j]
-    y<-k_matrix[i,j]
-    
-    N <- 15725 # The total number of genes :17372
-    K <- 1087 # The number of gene belonging to a gene famility---- AUTOPHAGY
-    n <- x # The list of interesting genes - DEGs in this comparison
-    k <- y # The number of gene family members in the interesting genes : autophagy in DEGs of comparison
-    
-    m <- matrix(c(k, K - k, n - k, N - K - n + k),
-                2, 2, dimnames = list(c("DE both", "no DE"),
-                                      c("Autophagy", "Rest")))
-    #Fisher's exact test is included in base R:
-    res <- fisher.test(x=m, alternative="two.sided")
-    pval_matrix[i,j]<-res$p.value
-    odds_matrix[i,j]<-res$estimate
+fisher_test<-function(DEgenes,DEgenes_group,N,K){
+  #going to iterate every contrast, up, down, both 
+  for (i in 1:dim(DEgenes)[1]){
+    for (j in 1:3){
+      n<-DEgenes[i,j]   # The list of interesting genes - DEGs in this comparison
+      k<-DEgenes_group[i,j]  #  The number of  autophagy genes in in DEGs of comparison
+      
+      m <- matrix(c( N - K - n + k,  K - k,
+                     n - k,     k ),
+                  nrow=2, ncol=2, 
+                  dimnames = list(c("not Auto", "Auto"),
+                                  c("not DE", "DE")))
+      
+      print(rownames(DEgenes)[i])
+      print (m)
+      cat("\n")
+      
+      #Fisher's exact test:
+      res <- fisher.test(x=m, alternative="two.sided")
+      DEgenes_group[i,j+3]<-res$estimate
+      DEgenes_group[i,j+6]<-res$p.value
+    }
   }
+  return(DEgenes_group)
 }
-options("scipen"=10)
-options()$scipen
 
-pval_matrix
-odds_matrix #magnitude of difference
+
+#ALL
+autoALL_DEgenes<-cbind(autoALL_DEgenes,matrix(data=NA, nrow=nrow(autoALL_DEgenes), ncol=9))
+names(autoALL_DEgenes)[4:12]<-extra_colnames
+K <- 1090 # The number of gene belonging to a gene famility---- AUTOPHAGY ALL
+autoALL_DEgenes<-fisher_test(DEgenes,autoALL_DEgenes,N,K)
+
+#CORE
+autoCORE_DEgenes<-cbind(autoCORE_DEgenes,matrix(data=NA, nrow=nrow(autoCORE_DEgenes), ncol=9))
+names(autoCORE_DEgenes)[4:12]<-extra_colnames
+K <- 155 # The number of gene belonging to a gene famility---- AUTOPHAGY CORE
+autoCORE_DEgenes<-fisher_test(DEgenes,autoCORE_DEgenes,N,K)
+
+
+#TF
+autoTF_DEgenes<-cbind(autoTF_DEgenes,matrix(data=NA, nrow=nrow(autoTF_DEgenes), ncol=9))
+names(autoTF_DEgenes)[4:12]<-extra_colnames
+K <- 97 # The number of gene belonging to a gene famility---- AUTOPHAGY TF
+autoTF_DEgenes<-fisher_test(DEgenes,autoTF_DEgenes,N,K)
+
+
+# the resuts df
+autoALL_DEgenes
+autoCORE_DEgenes
+autoTF_DEgenes
+
+stop()
+View(autoALL_DEgenes)
+View(autoCORE_DEgenes)
+View(autoTF_DEgenes)
