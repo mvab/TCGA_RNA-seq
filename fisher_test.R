@@ -1,10 +1,10 @@
 #rm(list=ls(all=TRUE))
 setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/DEA/testing")
 
-DEgenes<- get(load("stages_DE_genes_numbers3.rda"))
-autoALL_DEgenes<- get(load("stages_DE_AUTO_genes_numbers3.rda"))
-autoCORE_DEgenes<- get(load("stages_DE_AUTOCORE_genes_numbers3.rda"))
-autoTF_DEgenes<- get(load("stages_DE_AUTOTF_genes_numbers3.rda"))
+DEgenes<- get(load("morph_DE_genes_numbers3.rda"))
+autoALL_DEgenes<- get(load("morph_DE_AUTO_genes_numbers3.rda"))
+autoCORE_DEgenes<- get(load("morph_DE_AUTOCORE_genes_numbers3.rda"))
+autoTF_DEgenes<- get(load("morph_DE_AUTOTF_genes_numbers3.rda"))
 
 N <- 15804 # The total number of genes :17372 ##### THIS WILL CHANGE
 
