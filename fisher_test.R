@@ -1,10 +1,17 @@
 #rm(list=ls(all=TRUE))
 setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/DEA/EnrichmentAnalysis/")
 
-DEgenes<- get(load("morph_DE_genes_numbers3.rda"))
-autoALL_DEgenes<- get(load("morph_DE_AUTO_genes_numbers3.rda"))
-autoCORE_DEgenes<- get(load("morph_DE_AUTOCORE_genes_numbers3.rda"))
-autoTF_DEgenes<- get(load("morph_DE_AUTOTF_genes_numbers3.rda"))
+class<- "PAM50"
+class<- "stages"
+class<- "morph"
+class<-"Group1"
+class<-"Group2"
+
+
+DEgenes<- get(load(paste0(class, "_DE_genes_numbers3.rda")))
+autoALL_DEgenes<- get(load(paste0(class, "_DE_AUTO_genes_numbers3.rda")))
+autoCORE_DEgenes<- get(load(paste0(class, "_DE_AUTOCORE_genes_numbers3.rda")))
+autoTF_DEgenes<- get(load(paste0(class, "_DE_AUTOTF_genes_numbers3.rda")))
 
 N <- 15804 # The total number of genes :17372 ##### THIS WILL CHANGE
 
@@ -72,9 +79,6 @@ autoCORE_DEgenes
 autoTF_DEgenes
 
 # saving data for easy Viewing 
-class<- "PAM50"
-class<- "stages"
-class<- "morph"
 
 save(autoALL_DEgenes, file=paste0("EA_", class, "_All_autophagy.rda"))
 save(autoCORE_DEgenes, file=paste0("EA_", class, "_Core_autophagy.rda"))

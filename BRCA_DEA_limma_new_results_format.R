@@ -37,6 +37,7 @@ samples.matrix<-addClinData(samples.matrix)
 # only PAM50 samples 
 PAMNPout<-addXtraPAMandNormal(samples.matrix)# (807 +104 -39) + 112 = 984
 samples.matrix<-PAMNPout$samples.matrix 
+#save(samples.matrix, file="samplesMatrix_full.rda")
 dim(samples.matrix)
 sampleTokeepSE <- PAMNPout$samplesToKeep
 dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
@@ -95,7 +96,10 @@ addSampleData<-function(y, samples.matrix){
   y$samples$tss <- as.factor(samples.matrix$tss)
   y$samples$age <- as.factor(samples.matrix$ageGroups)
   
+  #stage + PAM50
   y$samples$Group1 <- factor(paste( gsub(" ", "", samples.matrix$PAM50) , samples.matrix$tumourStages,sep="."))
+  #morphology +PAM50
+  y$samples$Group2 <- factor(paste( gsub(" ", "", samples.matrix$PAM50) , samples.matrix$tumourTypes,sep="."))
   
   
   #fixing NAs
@@ -115,6 +119,7 @@ addSampleData<-function(y, samples.matrix){
   y$samples$morphology = relevel(y$samples$morphology, ref="Normal")
   y$samples$stages = relevel(y$samples$stages, ref="Normal")
   y$samples$Group1 = relevel(y$samples$Group1, ref = "Normal.Normal")
+  y$samples$Group1 = relevel(y$samples$Group2, ref = "Normal.Normal")
   
   
   return (y)
@@ -149,10 +154,11 @@ y <- calcNormFactors(dge)
 #design <- model.matrix(~tss+PAM50  +morphology + stages + age +year , data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
 
 design <- model.matrix(~0 + PAM50 + age + stages  + morphology + tss + year , data=y$samples) #nested interaction # makes all possible pairings (alt to manual contarsts)
+design <- model.matrix(~0 +  Group1 + PAM50 +   age + stages  + morphology + tss + year , data=y$samples) #nested interaction # makes all possible pairings (alt to manual contarsts)
 
 #design <- model.matrix(~0+Group1, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
 
-#colnames(design) <- gsub("Group1", "", colnames(design))
+colnames(design) <- gsub("Group1", "", colnames(design))
 colnames(design) <- gsub("PAM50", "", colnames(design))
 colnames(design) <- gsub("morphology", "", colnames(design))
 colnames(design) <- gsub("stages", "", colnames(design))
@@ -162,12 +168,441 @@ colnames(design) <- gsub(":age", ":", colnames(design))
 colnames(design) <- gsub(" ", "", colnames(design))
 colnames(design) <- gsub("-l", "L", colnames(design))
 colnames(design) <- gsub("-", "", colnames(design))
+
 #colnames(design) <- gsub(":t", "t", colnames(design))
 
 colnames(design) 
 
 # contr matrices
 #######       
+
+
+contr.matrix <- makeContrasts(
+  ######## BY PAM50  
+  LuminalA.stage1vsNorm = LuminalA.stage1 - Normal.Normal,  
+  LuminalA.stage2vsNorm = LuminalA.stage2 - Normal.Normal,
+  LuminalA.stage3vsNorm = LuminalA.stage3 - Normal.Normal,
+  LuminalA.stage4vsNorm = LuminalA.stage4- Normal.Normal,
+  
+  LuminalA.stage1vsLuminalA.stage2 = LuminalA.stage1 - LuminalA.stage2,
+  LuminalA.stage1vsLuminalA.stage3 = LuminalA.stage1 - LuminalA.stage3,
+  LuminalA.stage1vsLuminalA.stage4 = LuminalA.stage1 - LuminalA.stage4,
+  
+  LuminalA.stage2vsLuminalA.stage1 = LuminalA.stage2 - LuminalA.stage1,
+  LuminalA.stage2vsLuminalA.stage3 = LuminalA.stage2 - LuminalA.stage3,
+  LuminalA.stage2vsLuminalA.stage4 = LuminalA.stage2 - LuminalA.stage4,
+  
+  LuminalA.stage3vsLuminalA.stage4 = LuminalA.stage3 - LuminalA.stage4,
+  LuminalA.stage3vsLuminalA.stage2 = LuminalA.stage3 - LuminalA.stage2,
+  LuminalA.stage3vsLuminalA.stage1 = LuminalA.stage3 - LuminalA.stage1,
+  
+  
+  
+  LuminalB.stage1vsNorm = LuminalB.stage1 - Normal.Normal,  
+  LuminalB.stage2vsNorm = LuminalB.stage2 - Normal.Normal,
+  LuminalB.stage3vsNorm = LuminalB.stage3 - Normal.Normal,
+  LuminalB.stage4vsNorm = LuminalB.stage4- Normal.Normal,
+  
+  LuminalB.stage1vsLuminalB.stage2 = LuminalB.stage1 - LuminalB.stage2,
+  LuminalB.stage1vsLuminalB.stage3 = LuminalB.stage1 - LuminalB.stage3,
+  LuminalB.stage1vsLuminalB.stage4 = LuminalB.stage1 - LuminalB.stage4,
+  
+  LuminalB.stage2vsLuminalB.stage1 = LuminalB.stage2 - LuminalB.stage1,
+  LuminalB.stage2vsLuminalB.stage3 = LuminalB.stage2 - LuminalB.stage3,
+  LuminalB.stage2vsLuminalB.stage4 = LuminalB.stage2 - LuminalB.stage4,
+  
+  LuminalB.stage3vsLuminalB.stage4 = LuminalB.stage3 - LuminalB.stage4,
+  LuminalB.stage3vsLuminalB.stage2 = LuminalB.stage3 - LuminalB.stage2,
+  LuminalB.stage3vsLuminalB.stage1 = LuminalB.stage3 - LuminalB.stage1,
+  
+  
+  
+  BasalLike.stage1vsNorm = BasalLike.stage1 - Normal.Normal,  
+  BasalLike.stage2vsNorm = BasalLike.stage2 - Normal.Normal,
+  BasalLike.stage3vsNorm = BasalLike.stage3 - Normal.Normal,
+  BasalLike.stage4vsNorm = BasalLike.stage4- Normal.Normal,
+  
+  BasalLike.stage1vsBasalLike.stage2 = BasalLike.stage1 - BasalLike.stage2,
+  BasalLike.stage1vsBasalLike.stage3 = BasalLike.stage1 - BasalLike.stage3,
+  BasalLike.stage1vsBasalLike.stage4 = BasalLike.stage1 - BasalLike.stage4,
+  
+  BasalLike.stage2vsBasalLike.stage1 = BasalLike.stage2 - BasalLike.stage1,
+  BasalLike.stage2vsBasalLike.stage3 = BasalLike.stage2 - BasalLike.stage3,
+  BasalLike.stage2vsBasalLike.stage4 = BasalLike.stage2 - BasalLike.stage4,
+  
+  BasalLike.stage3vsBasalLike.stage4 = BasalLike.stage3 - BasalLike.stage4,
+  BasalLike.stage3vsBasalLike.stage2 = BasalLike.stage3 - BasalLike.stage2,
+  BasalLike.stage3vsBasalLike.stage1 = BasalLike.stage3 - BasalLike.stage1,
+  
+  
+  
+  HER2enriched.stage1vsNorm = HER2enriched.stage1 - Normal.Normal,  
+  HER2enriched.stage2vsNorm = HER2enriched.stage2 - Normal.Normal,
+  HER2enriched.stage3vsNorm = HER2enriched.stage3 - Normal.Normal,
+  HER2enriched.stage4vsNorm = HER2enriched.stage4- Normal.Normal,
+  
+  HER2enriched.stage1vsHER2enriched.stage2 = HER2enriched.stage1 - HER2enriched.stage2,
+  HER2enriched.stage1vsHER2enriched.stage3 = HER2enriched.stage1 - HER2enriched.stage3,
+  HER2enriched.stage1vsHER2enriched.stage4 = HER2enriched.stage1 - HER2enriched.stage4,
+  
+  HER2enriched.stage2vsHER2enriched.stage1 = HER2enriched.stage2 - HER2enriched.stage1,
+  HER2enriched.stage2vsHER2enriched.stage3 = HER2enriched.stage2 - HER2enriched.stage3,
+  HER2enriched.stage2vsHER2enriched.stage4 = HER2enriched.stage2 - HER2enriched.stage4,
+  
+  HER2enriched.stage3vsHER2enriched.stage4 = HER2enriched.stage3 - HER2enriched.stage4,
+  HER2enriched.stage3vsHER2enriched.stage2 = HER2enriched.stage3 - HER2enriched.stage2,
+  HER2enriched.stage3vsHER2enriched.stage1 = HER2enriched.stage3 - HER2enriched.stage1,
+  
+  
+  NormalLike.stage1vsNorm = NormalLike.stage1 - Normal.Normal,  
+  NormalLike.stage2vsNorm = NormalLike.stage2 - Normal.Normal,
+  NormalLike.stage3vsNorm = NormalLike.stage3 - Normal.Normal,
+  
+  NormalLike.stage1vsNormalLike.stage2 = NormalLike.stage1 - NormalLike.stage2,
+  NormalLike.stage1vsNormalLike.stage3 = NormalLike.stage1 - NormalLike.stage3,
+  
+  NormalLike.stage2vsNormalLike.stage1 = NormalLike.stage2 - NormalLike.stage1,
+  NormalLike.stage2vsNormalLike.stage3 = NormalLike.stage2 - NormalLike.stage3,
+  
+  NormalLike.stage3vsNormalLike.stage2 = NormalLike.stage3 - NormalLike.stage2,
+  NormalLike.stage3vsNormalLike.stage1 = NormalLike.stage3 - NormalLike.stage1,
+  
+  # normallike.stage4 does not exist!
+  
+  #######BY STAGE
+  
+  stage1.LumAvsLumB = LuminalA.stage1 - LuminalB.stage1,     
+  stage1.LumAvsBasal = LuminalA.stage1 - BasalLike.stage1,
+  stage1.LumAvsHER2 = LuminalA.stage1 - HER2enriched.stage1,
+  stage1.LumAvsNormLike = LuminalA.stage1 - NormalLike.stage1,
+  stage1.LumAvsNormal = LuminalA.stage1 - Normal.Normal,
+  
+  stage1.LumBvsLumA = LuminalB.stage1 - LuminalA.stage1,
+  stage1.LumBvsBasal = LuminalB.stage1 - BasalLike.stage1,
+  stage1.LumBvsHER2 = LuminalB.stage1 - HER2enriched.stage1,
+  stage1.LumBvsNormLike = LuminalB.stage1 - NormalLike.stage1,
+  stage1.LumBvsNormal = LuminalB.stage1 - Normal.Normal,
+  
+  stage1.BasalvsLumA = BasalLike.stage1- LuminalA.stage1,
+  stage1.BasalvsLumB = BasalLike.stage1- LuminalB.stage1,
+  stage1.BasalvsHER2 = BasalLike.stage1- HER2enriched.stage1,
+  stage1.BasalvsNormLike = BasalLike.stage1 - NormalLike.stage1,
+  stage1.BasalvsNormal = BasalLike.stage1 - Normal.Normal,
+  
+  stage1.HER2vsLumA = HER2enriched.stage1- LuminalA.stage1,
+  stage1.HER2vsLumB = HER2enriched.stage1- LuminalB.stage1,
+  stage1.HER2vsBasal = HER2enriched.stage1- BasalLike.stage1,
+  stage1.HER2vsNormLike = HER2enriched.stage1 - NormalLike.stage1,
+  stage1.HER2vsNormal = HER2enriched.stage1 - Normal.Normal,
+  
+  stage1.NormalLikevsLumA = NormalLike.stage1- LuminalA.stage1,
+  stage1.NormalLikevsLumB = NormalLike.stage1- LuminalB.stage1,
+  stage1.NormalLikevsBasal = NormalLike.stage1- BasalLike.stage1,
+  stage1.NormalLikevsHER2 = NormalLike.stage1- HER2enriched.stage1,
+  stage1.NormalLikevsNormal =NormalLike.stage1 - Normal.Normal,     
+  
+  
+  
+  
+  stage2.LumAvsLumB = LuminalA.stage2 - LuminalB.stage2,     
+  stage2.LumAvsBasal = LuminalA.stage2 - BasalLike.stage2,
+  stage2.LumAvsHER2 = LuminalA.stage2 - HER2enriched.stage2,
+  stage2.LumAvsNormLike = LuminalA.stage2 - NormalLike.stage2,
+  stage2.LumAvsNormal = LuminalA.stage2 - Normal.Normal,
+  
+  stage2.LumBvsLumA = LuminalB.stage2 - LuminalA.stage2,
+  stage2.LumBvsBasal = LuminalB.stage2 - BasalLike.stage2,
+  stage2.LumBvsHER2 = LuminalB.stage2 - HER2enriched.stage2,
+  stage2.LumBvsNormLike = LuminalB.stage2 - NormalLike.stage2,
+  stage2.LumBvsNormal = LuminalB.stage2 - Normal.Normal,
+  
+  stage2.BasalvsLumA = BasalLike.stage2- LuminalA.stage2,
+  stage2.BasalvsLumB = BasalLike.stage2- LuminalB.stage2,
+  stage2.BasalvsHER2 = BasalLike.stage2- HER2enriched.stage2,
+  stage2.BasalvsNormLike = BasalLike.stage2 - NormalLike.stage2,
+  stage2.BasalvsNormal = BasalLike.stage2 - Normal.Normal,
+  
+  stage2.HER2vsLumA = HER2enriched.stage2- LuminalA.stage2,
+  stage2.HER2vsLumB = HER2enriched.stage2- LuminalB.stage2,
+  stage2.HER2vsBasal = HER2enriched.stage2- BasalLike.stage2,
+  stage2.HER2vsNormLike = HER2enriched.stage2 - NormalLike.stage2,
+  stage2.HER2vsNormal = HER2enriched.stage2 - Normal.Normal,
+  
+  stage2.NormalLikevsLumA = NormalLike.stage2- LuminalA.stage2,
+  stage2.NormalLikevsLumB = NormalLike.stage2- LuminalB.stage2,
+  stage2.NormalLikevsBasal = NormalLike.stage2- BasalLike.stage2,
+  stage2.NormalLikevsHER2 = NormalLike.stage2- HER2enriched.stage2,
+  stage2.NormalLikevsNormal =NormalLike.stage2 - Normal.Normal,  
+  
+  
+  
+  stage3.LumAvsLumB = LuminalA.stage3 - LuminalB.stage3,     
+  stage3.LumAvsBasal = LuminalA.stage3 - BasalLike.stage3,
+  stage3.LumAvsHER2 = LuminalA.stage3 - HER2enriched.stage3,
+  stage3.LumAvsNormLike = LuminalA.stage3 - NormalLike.stage3,
+  stage3.LumAvsNormal = LuminalA.stage3 - Normal.Normal,
+  
+  stage3.LumBvsLumA = LuminalB.stage3 - LuminalA.stage3,
+  stage3.LumBvsBasal = LuminalB.stage3 - BasalLike.stage3,
+  stage3.LumBvsHER2 = LuminalB.stage3 - HER2enriched.stage3,
+  stage3.LumBvsNormLike = LuminalB.stage3 - NormalLike.stage3,
+  stage3.LumBvsNormal = LuminalB.stage3 - Normal.Normal,
+  
+  stage3.BasalvsLumA = BasalLike.stage3- LuminalA.stage3,
+  stage3.BasalvsLumB = BasalLike.stage3- LuminalB.stage3,
+  stage3.BasalvsHER2 = BasalLike.stage3- HER2enriched.stage3,
+  stage3.BasalvsNormLike = BasalLike.stage3 - NormalLike.stage3,
+  stage3.BasalvsNormal = BasalLike.stage3 - Normal.Normal,
+  
+  stage3.HER2vsLumA = HER2enriched.stage3- LuminalA.stage3,
+  stage3.HER2vsLumB = HER2enriched.stage3- LuminalB.stage3,
+  stage3.HER2vsBasal = HER2enriched.stage3- BasalLike.stage3,
+  stage3.HER2vsNormLike = HER2enriched.stage3 - NormalLike.stage3,
+  stage3.HER2vsNormal = HER2enriched.stage3 - Normal.Normal,
+  
+  stage3.NormalLikevsLumA = NormalLike.stage3- LuminalA.stage3,
+  stage3.NormalLikevsLumB = NormalLike.stage3- LuminalB.stage3,
+  stage3.NormalLikevsBasal = NormalLike.stage3- BasalLike.stage3,
+  stage3.NormalLikevsHER2 = NormalLike.stage3- HER2enriched.stage3,
+  stage3.NormalLikevsNormal =NormalLike.stage3 - Normal.Normal,         
+  
+  
+  stage4.LumAvsLumB = LuminalA.stage4 - LuminalB.stage4,     
+  stage4.LumAvsBasal = LuminalA.stage4 - BasalLike.stage4,
+  stage4.LumAvsHER2 = LuminalA.stage4 - HER2enriched.stage4,
+  stage4.LumAvsNormal = LuminalA.stage4 - Normal.Normal,
+  
+  stage4.LumBvsLumA = LuminalB.stage4 - LuminalA.stage4,
+  stage4.LumBvsBasal = LuminalB.stage4 - BasalLike.stage4,
+  stage4.LumBvsHER2 = LuminalB.stage4 - HER2enriched.stage4,
+  stage4.LumBvsNormal = LuminalB.stage4 - Normal.Normal,
+  
+  stage4.BasalvsLumA = BasalLike.stage4- LuminalA.stage4,
+  stage4.BasalvsLumB = BasalLike.stage4- LuminalB.stage4,
+  stage4.BasalvsHER2 = BasalLike.stage4- HER2enriched.stage4,
+  stage4.BasalvsNormal = BasalLike.stage4 - Normal.Normal,
+  
+  stage4.HER2vsLumA = HER2enriched.stage4- LuminalA.stage4,
+  stage4.HER2vsLumB = HER2enriched.stage4- LuminalB.stage4,
+  stage4.HER2vsBasal = HER2enriched.stage4- BasalLike.stage4,
+  stage4.HER2vsNormal = HER2enriched.stage4 - Normal.Normal,
+  
+  levels = colnames(design)) 
+
+
+#group1
+contr.matrix <- makeContrasts( LuminalA.stage1vsNorm = LuminalA.stage1 - Normal.Normal,  
+                               LuminalA.stage2vsNorm = LuminalA.stage2 - Normal.Normal,
+                               LuminalA.stage3vsNorm = LuminalA.stage3 - Normal.Normal,
+                               LuminalA.stage4vsNorm = LuminalA.stage4- Normal.Normal,
+                               
+                               LuminalA.stage1vsLuminalA.stage2 = LuminalA.stage1 - LuminalA.stage2,
+                               LuminalA.stage1vsLuminalA.stage3 = LuminalA.stage1 - LuminalA.stage3,
+                               LuminalA.stage1vsLuminalA.stage4 = LuminalA.stage1 - LuminalA.stage4,
+                               
+                               LuminalA.stage2vsLuminalA.stage1 = LuminalA.stage2 - LuminalA.stage1,
+                               LuminalA.stage2vsLuminalA.stage3 = LuminalA.stage2 - LuminalA.stage3,
+                               LuminalA.stage2vsLuminalA.stage4 = LuminalA.stage2 - LuminalA.stage4,
+                               
+                               LuminalA.stage3vsLuminalA.stage4 = LuminalA.stage3 - LuminalA.stage4,
+                               LuminalA.stage3vsLuminalA.stage2 = LuminalA.stage3 - LuminalA.stage2,
+                               LuminalA.stage3vsLuminalA.stage1 = LuminalA.stage3 - LuminalA.stage1,
+                               
+                               
+                               
+                               LuminalB.stage1vsNorm = LuminalB.stage1 - Normal.Normal,  
+                               LuminalB.stage2vsNorm = LuminalB.stage2 - Normal.Normal,
+                               LuminalB.stage3vsNorm = LuminalB.stage3 - Normal.Normal,
+                               LuminalB.stage4vsNorm = LuminalB.stage4- Normal.Normal,
+                               
+                               LuminalB.stage1vsLuminalB.stage2 = LuminalB.stage1 - LuminalB.stage2,
+                               LuminalB.stage1vsLuminalB.stage3 = LuminalB.stage1 - LuminalB.stage3,
+                               LuminalB.stage1vsLuminalB.stage4 = LuminalB.stage1 - LuminalB.stage4,
+                               
+                               LuminalB.stage2vsLuminalB.stage1 = LuminalB.stage2 - LuminalB.stage1,
+                               LuminalB.stage2vsLuminalB.stage3 = LuminalB.stage2 - LuminalB.stage3,
+                               LuminalB.stage2vsLuminalB.stage4 = LuminalB.stage2 - LuminalB.stage4,
+                               
+                               LuminalB.stage3vsLuminalB.stage4 = LuminalB.stage3 - LuminalB.stage4,
+                               LuminalB.stage3vsLuminalB.stage2 = LuminalB.stage3 - LuminalB.stage2,
+                               LuminalB.stage3vsLuminalB.stage1 = LuminalB.stage3 - LuminalB.stage1,
+                               
+                               
+                               
+                               BasalLike.stage1vsNorm = BasalLike.stage1 - Normal.Normal,  
+                               BasalLike.stage2vsNorm = BasalLike.stage2 - Normal.Normal,
+                               BasalLike.stage3vsNorm = BasalLike.stage3 - Normal.Normal,
+                               BasalLike.stage4vsNorm = BasalLike.stage4- Normal.Normal,
+                               
+                               BasalLike.stage1vsBasalLike.stage2 = BasalLike.stage1 - BasalLike.stage2,
+                               BasalLike.stage1vsBasalLike.stage3 = BasalLike.stage1 - BasalLike.stage3,
+                               BasalLike.stage1vsBasalLike.stage4 = BasalLike.stage1 - BasalLike.stage4,
+                               
+                               BasalLike.stage2vsBasalLike.stage1 = BasalLike.stage2 - BasalLike.stage1,
+                               BasalLike.stage2vsBasalLike.stage3 = BasalLike.stage2 - BasalLike.stage3,
+                               BasalLike.stage2vsBasalLike.stage4 = BasalLike.stage2 - BasalLike.stage4,
+                               
+                               BasalLike.stage3vsBasalLike.stage4 = BasalLike.stage3 - BasalLike.stage4,
+                               BasalLike.stage3vsBasalLike.stage2 = BasalLike.stage3 - BasalLike.stage2,
+                               BasalLike.stage3vsBasalLike.stage1 = BasalLike.stage3 - BasalLike.stage1,
+                               
+                               
+                               
+                               HER2enriched.stage1vsNorm = HER2enriched.stage1 - Normal.Normal,  
+                               HER2enriched.stage2vsNorm = HER2enriched.stage2 - Normal.Normal,
+                               HER2enriched.stage3vsNorm = HER2enriched.stage3 - Normal.Normal,
+                               HER2enriched.stage4vsNorm = HER2enriched.stage4- Normal.Normal,
+                               
+                               HER2enriched.stage1vsHER2enriched.stage2 = HER2enriched.stage1 - HER2enriched.stage2,
+                               HER2enriched.stage1vsHER2enriched.stage3 = HER2enriched.stage1 - HER2enriched.stage3,
+                               HER2enriched.stage1vsHER2enriched.stage4 = HER2enriched.stage1 - HER2enriched.stage4,
+                               
+                               HER2enriched.stage2vsHER2enriched.stage1 = HER2enriched.stage2 - HER2enriched.stage1,
+                               HER2enriched.stage2vsHER2enriched.stage3 = HER2enriched.stage2 - HER2enriched.stage3,
+                               HER2enriched.stage2vsHER2enriched.stage4 = HER2enriched.stage2 - HER2enriched.stage4,
+                               
+                               HER2enriched.stage3vsHER2enriched.stage4 = HER2enriched.stage3 - HER2enriched.stage4,
+                               HER2enriched.stage3vsHER2enriched.stage2 = HER2enriched.stage3 - HER2enriched.stage2,
+                               HER2enriched.stage3vsHER2enriched.stage1 = HER2enriched.stage3 - HER2enriched.stage1,
+                               
+                               
+                               NormalLike.stage1vsNorm = NormalLike.stage1 - Normal.Normal,  
+                               NormalLike.stage2vsNorm = NormalLike.stage2 - Normal.Normal,
+                               NormalLike.stage3vsNorm = NormalLike.stage3 - Normal.Normal,
+
+                               NormalLike.stage1vsNormalLike.stage2 = NormalLike.stage1 - NormalLike.stage2,
+                               NormalLike.stage1vsNormalLike.stage3 = NormalLike.stage1 - NormalLike.stage3,
+
+                               NormalLike.stage2vsNormalLike.stage1 = NormalLike.stage2 - NormalLike.stage1,
+                               NormalLike.stage2vsNormalLike.stage3 = NormalLike.stage2 - NormalLike.stage3,
+
+                               NormalLike.stage3vsNormalLike.stage2 = NormalLike.stage3 - NormalLike.stage2,
+                               NormalLike.stage3vsNormalLike.stage1 = NormalLike.stage3 - NormalLike.stage1,
+                               
+                               # normallike.stage4 does not exist!
+                               
+                               levels = colnames(design)) 
+
+#group1 other 
+contr.matrix <- makeContrasts( stage1.LumAvsLumB = LuminalA.stage1 - LuminalB.stage1,     
+                               stage1.LumAvsBasal = LuminalA.stage1 - BasalLike.stage1,
+                               stage1.LumAvsHER2 = LuminalA.stage1 - HER2enriched.stage1,
+                               stage1.LumAvsNormLike = LuminalA.stage1 - NormalLike.stage1,
+                               stage1.LumAvsNormal = LuminalA.stage1 - Normal.Normal,
+                               
+                               stage1.LumBvsLumA = LuminalB.stage1 - LuminalA.stage1,
+                               stage1.LumBvsBasal = LuminalB.stage1 - BasalLike.stage1,
+                               stage1.LumBvsHER2 = LuminalB.stage1 - HER2enriched.stage1,
+                               stage1.LumBvsNormLike = LuminalB.stage1 - NormalLike.stage1,
+                               stage1.LumBvsNormal = LuminalB.stage1 - Normal.Normal,
+                               
+                               stage1.BasalvsLumA = BasalLike.stage1- LuminalA.stage1,
+                               stage1.BasalvsLumB = BasalLike.stage1- LuminalB.stage1,
+                               stage1.BasalvsHER2 = BasalLike.stage1- HER2enriched.stage1,
+                               stage1.BasalvsNormLike = BasalLike.stage1 - NormalLike.stage1,
+                               stage1.BasalvsNormal = BasalLike.stage1 - Normal.Normal,
+                               
+                               stage1.HER2vsLumA = HER2enriched.stage1- LuminalA.stage1,
+                               stage1.HER2vsLumB = HER2enriched.stage1- LuminalB.stage1,
+                               stage1.HER2vsBasal = HER2enriched.stage1- BasalLike.stage1,
+                               stage1.HER2vsNormLike = HER2enriched.stage1 - NormalLike.stage1,
+                               stage1.HER2vsNormal = HER2enriched.stage1 - Normal.Normal,
+                               
+                               stage1.NormalLikevsLumA = NormalLike.stage1- LuminalA.stage1,
+                               stage1.NormalLikevsLumB = NormalLike.stage1- LuminalB.stage1,
+                               stage1.NormalLikevsBasal = NormalLike.stage1- BasalLike.stage1,
+                               stage1.NormalLikevsHER2 = NormalLike.stage1- HER2enriched.stage1,
+                               stage1.NormalLikevsNormal =NormalLike.stage1 - Normal.Normal,     
+                               
+                               
+                               
+                               
+                               stage2.LumAvsLumB = LuminalA.stage2 - LuminalB.stage2,     
+                               stage2.LumAvsBasal = LuminalA.stage2 - BasalLike.stage2,
+                               stage2.LumAvsHER2 = LuminalA.stage2 - HER2enriched.stage2,
+                               stage2.LumAvsNormLike = LuminalA.stage2 - NormalLike.stage2,
+                               stage2.LumAvsNormal = LuminalA.stage2 - Normal.Normal,
+                               
+                               stage2.LumBvsLumA = LuminalB.stage2 - LuminalA.stage2,
+                               stage2.LumBvsBasal = LuminalB.stage2 - BasalLike.stage2,
+                               stage2.LumBvsHER2 = LuminalB.stage2 - HER2enriched.stage2,
+                               stage2.LumBvsNormLike = LuminalB.stage2 - NormalLike.stage2,
+                               stage2.LumBvsNormal = LuminalB.stage2 - Normal.Normal,
+                               
+                               stage2.BasalvsLumA = BasalLike.stage2- LuminalA.stage2,
+                               stage2.BasalvsLumB = BasalLike.stage2- LuminalB.stage2,
+                               stage2.BasalvsHER2 = BasalLike.stage2- HER2enriched.stage2,
+                               stage2.BasalvsNormLike = BasalLike.stage2 - NormalLike.stage2,
+                               stage2.BasalvsNormal = BasalLike.stage2 - Normal.Normal,
+                               
+                               stage2.HER2vsLumA = HER2enriched.stage2- LuminalA.stage2,
+                               stage2.HER2vsLumB = HER2enriched.stage2- LuminalB.stage2,
+                               stage2.HER2vsBasal = HER2enriched.stage2- BasalLike.stage2,
+                               stage2.HER2vsNormLike = HER2enriched.stage2 - NormalLike.stage2,
+                               stage2.HER2vsNormal = HER2enriched.stage2 - Normal.Normal,
+                               
+                               stage2.NormalLikevsLumA = NormalLike.stage2- LuminalA.stage2,
+                               stage2.NormalLikevsLumB = NormalLike.stage2- LuminalB.stage2,
+                               stage2.NormalLikevsBasal = NormalLike.stage2- BasalLike.stage2,
+                               stage2.NormalLikevsHER2 = NormalLike.stage2- HER2enriched.stage2,
+                               stage2.NormalLikevsNormal =NormalLike.stage2 - Normal.Normal,  
+                               
+                               
+                               
+                               stage3.LumAvsLumB = LuminalA.stage3 - LuminalB.stage3,     
+                               stage3.LumAvsBasal = LuminalA.stage3 - BasalLike.stage3,
+                               stage3.LumAvsHER2 = LuminalA.stage3 - HER2enriched.stage3,
+                               stage3.LumAvsNormLike = LuminalA.stage3 - NormalLike.stage3,
+                               stage3.LumAvsNormal = LuminalA.stage3 - Normal.Normal,
+                               
+                               stage3.LumBvsLumA = LuminalB.stage3 - LuminalA.stage3,
+                               stage3.LumBvsBasal = LuminalB.stage3 - BasalLike.stage3,
+                               stage3.LumBvsHER2 = LuminalB.stage3 - HER2enriched.stage3,
+                               stage3.LumBvsNormLike = LuminalB.stage3 - NormalLike.stage3,
+                               stage3.LumBvsNormal = LuminalB.stage3 - Normal.Normal,
+                               
+                               stage3.BasalvsLumA = BasalLike.stage3- LuminalA.stage3,
+                               stage3.BasalvsLumB = BasalLike.stage3- LuminalB.stage3,
+                               stage3.BasalvsHER2 = BasalLike.stage3- HER2enriched.stage3,
+                               stage3.BasalvsNormLike = BasalLike.stage3 - NormalLike.stage3,
+                               stage3.BasalvsNormal = BasalLike.stage3 - Normal.Normal,
+                               
+                               stage3.HER2vsLumA = HER2enriched.stage3- LuminalA.stage3,
+                               stage3.HER2vsLumB = HER2enriched.stage3- LuminalB.stage3,
+                               stage3.HER2vsBasal = HER2enriched.stage3- BasalLike.stage3,
+                               stage3.HER2vsNormLike = HER2enriched.stage3 - NormalLike.stage3,
+                               stage3.HER2vsNormal = HER2enriched.stage3 - Normal.Normal,
+                               
+                               stage3.NormalLikevsLumA = NormalLike.stage3- LuminalA.stage3,
+                               stage3.NormalLikevsLumB = NormalLike.stage3- LuminalB.stage3,
+                               stage3.NormalLikevsBasal = NormalLike.stage3- BasalLike.stage3,
+                               stage3.NormalLikevsHER2 = NormalLike.stage3- HER2enriched.stage3,
+                               stage3.NormalLikevsNormal =NormalLike.stage3 - Normal.Normal,         
+                               
+                               
+                               stage4.LumAvsLumB = LuminalA.stage4 - LuminalB.stage4,     
+                               stage4.LumAvsBasal = LuminalA.stage4 - BasalLike.stage4,
+                               stage4.LumAvsHER2 = LuminalA.stage4 - HER2enriched.stage4,
+                               stage4.LumAvsNormal = LuminalA.stage4 - Normal.Normal,
+                               
+                               stage4.LumBvsLumA = LuminalB.stage4 - LuminalA.stage4,
+                               stage4.LumBvsBasal = LuminalB.stage4 - BasalLike.stage4,
+                               stage4.LumBvsHER2 = LuminalB.stage4 - HER2enriched.stage4,
+                               stage4.LumBvsNormal = LuminalB.stage4 - Normal.Normal,
+                               
+                               stage4.BasalvsLumA = BasalLike.stage4- LuminalA.stage4,
+                               stage4.BasalvsLumB = BasalLike.stage4- LuminalB.stage4,
+                               stage4.BasalvsHER2 = BasalLike.stage4- HER2enriched.stage4,
+                               stage4.BasalvsNormal = BasalLike.stage4 - Normal.Normal,
+                               
+                               stage4.HER2vsLumA = HER2enriched.stage4- LuminalA.stage4,
+                               stage4.HER2vsLumB = HER2enriched.stage4- LuminalB.stage4,
+                               stage4.HER2vsBasal = HER2enriched.stage4- BasalLike.stage4,
+                               stage4.HER2vsNormal = HER2enriched.stage4 - Normal.Normal,
+                               
+                               levels = colnames(design)) 
+                               
+
 
 contr.matrix <- makeContrasts(LobularvsNormal = Lobularcarcinoma - Normal,
                               DuctalvsNormal = Ductalcarcinoma - Normal,
@@ -336,8 +771,8 @@ DEA_MTC_save <-function(fit, my_coef, logFC, FDR){
   down <- data.frame(rownames(tt[tt$direction == "down", ]))
   
   setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/DEA/")
-  write.table(up, paste0(my_coef,"_up.txt"), sep = "\t",col.names = FALSE,row.names = FALSE, quote = FALSE)
-  write.table(down, paste0(my_coef,"_down.txt"),sep = "\t", col.names = FALSE, row.names = FALSE, quote = FALSE)
+  #write.table(up, paste0(my_coef,"_up.txt"), sep = "\t",col.names = FALSE,row.names = FALSE, quote = FALSE)
+  #write.table(down, paste0(my_coef,"_down.txt"),sep = "\t", col.names = FALSE, row.names = FALSE, quote = FALSE)
   
   return(list(tt=tt, dt=dt))
 }
@@ -347,7 +782,7 @@ fit<-DEA_limmaVoom_out$fit
 
 
 #Treat
-DEA_limmaVoom <- function(y, design, contr.matrix=NULL) {
+#DEA_limmaVoom <- function(y, design, contr.matrix=NULL) {
   #the voom transformation is applied to the normalized and filtered DGEList object:
   #Use voom() to convert the read counts to log2-cpm, with associated weights, 
   #ready for linear modelling:
@@ -385,7 +820,7 @@ DEA_limmaVoom <- function(y, design, contr.matrix=NULL) {
   
   return(list(fit=tfit, v=v)) #change if choose stricter option
 }  
-DEA_MTC_save <-function(fit, my_coef, logFC, FDR){
+#DEA_MTC_save <-function(fit, my_coef, logFC, FDR){
   
   #For a quick look at differential expression levels, the number of significantly up-
   #and down-regulated genes can be summarised in a table.
@@ -609,28 +1044,10 @@ length(autophagyCORE_genesDE)
 length(autophagyTF_genesDE)
 
 
-# get DE genes names
+# when group1 is in the model, for PAM50: 6818 / 412/ 52 /48
 
-allDE_names <- c() 
-autophagyDE_names <- c()
-autophagyCOREDE_names <- c()
-autophagyTFDE_names <- c()
+save(autophagy_genesDE, file="autophagy_genesDE.rda")
 
-for (i in 1:length(rownames(genesDEdf))){
-  this_contrast<- rownames(genesDEdf)[i]
-
-  allDE_names<- unique(sort(c( append(allDE_names, getGeneNames(contast_DE_list[[this_contrast]],'both')))))
-  autophagyDE_names<- unique(sort(c( append( autophagyDE_names, sharedWithAuto(getGeneNames(contast_DE_list[[this_contrast]],'both'))))))
-  autophagyCOREDE_names<- unique(sort(c( append(autophagyCOREDE_names, sharedWithAutoCORE(getGeneNames(contast_DE_list[[this_contrast]],'both'))))))
-  autophagyTFDE_names <-  unique(sort(c(append(autophagyTFDE_names, sharedWithAutoTF(getGeneNames(contast_DE_list[[this_contrast]],'both'))))))
-
-}
-
-# DEA genes in list, for each cathegory
-length(allDE_names)
-length(autophagyDE_names)
-length(autophagyCOREDE_names)
-length(autophagyTFDE_names)
 
 
 ###### saving data for Enrichment Analysis
@@ -662,6 +1079,20 @@ save(genesDE_AUTOCOREdf, file="morph_DE_AUTOCORE_genes_numbers3.rda")
 save(genesDE_AUTOTFdf, file="morph_DE_AUTOTF_genes_numbers3.rda")
 
 
+#Group1
+save(genesDEdf, file="Group1_DE_genes_numbers3.rda")
+save(genesDE_AUTOdf, file="Group1_DE_AUTO_genes_numbers3.rda")
+save(genesDE_AUTOCOREdf, file="Group1_DE_AUTOCORE_genes_numbers3.rda")
+save(genesDE_AUTOTFdf, file="Group1_DE_AUTOTF_genes_numbers3.rda")
+
+#Group2
+save(genesDEdf, file="Group2_DE_genes_numbers3.rda")
+save(genesDE_AUTOdf, file="Group2_DE_AUTO_genes_numbers3.rda")
+save(genesDE_AUTOCOREdf, file="Group2_DE_AUTOCORE_genes_numbers3.rda")
+save(genesDE_AUTOTFdf, file="Group2_DE_AUTOTF_genes_numbers3.rda")
+
+
+
 #checking
 allDE<-get(load("PAM50_DE_genes_numbers3.rda"))
 dim(allDE)
@@ -673,14 +1104,18 @@ stop()
 
 ####### HEATMAPS OF DEA #########
 
-to_show_in_hm <-allDE_names
-to_show_in_hm <-autophagyDE_names
-to_show_in_hm <-autophagyCOREDE_names
-to_show_in_hm <-autophagyTFDE_names
-  
+
+
+#to_show_in_hm <- all_genesDE
+to_show_in_hm <- autophagy_genesDE
+to_show_in_hm <- autophagyCORE_genesDE
+to_show_in_hm <- autophagyTF_genesDE
+
 # Get expression values
 v<-DEA_limmaVoom_out$v  
-all_geneExp <- v$E[rownames(v$E) %in% all_genesDE , ]
+save(v, file="v_expression_for_hm.rda")
+
+all_geneExp <- v$E[rownames(v$E) %in% to_show_in_hm , ]
 dim(all_geneExp)
 #View(all_geneExp)
 
@@ -690,7 +1125,7 @@ dim(all_geneExp)
 
 #### genes classes setup #####
 
-g_functions <- get(load("autophagy_functions.rda"))       #### add comments!
+g_functions <- get(load("../autophagy_functions.rda"))       #### add comments!
 rownames(g_functions)<-g_functions$genes 
 
 ok_autop_genes<-rownames(dataSE)
@@ -710,14 +1145,14 @@ ok_g_functions$genes <-NULL
 
 #get only interesting cols
 names(samplesMatrix)
-design<-subset(samplesMatrix[,c('tumourTypes','tumourStages','PAM50')])#, 'tss'
-row.names(design)<-samplesMatrix$barcode
+hm.design<-subset(samples.matrix[,c('tumourTypes','tumourStages','PAM50')])#, 'tss'
+row.names(hm.design)<-samples.matrix$barcode
 
 #recorder annotations
-design$PAM50 = factor(design$PAM50, levels = c("Basal-like", "HER2-enriched", "Luminal A", "Luminal B", "Normal-like", "Normal"))
-design$tumourStages = factor(design$tumourStages, levels = c("stage1", "stage2", "stage3", "stage4", "unknown")) 
+hm.design$PAM50 = factor(hm.design$PAM50, levels = c("Basal-like", "HER2-enriched", "Luminal A", "Luminal B", "Normal-like", "Normal"))
+hm.design$tumourStages = factor(hm.design$tumourStages, levels = c("stage1", "stage2", "stage3", "stage4", "unknown")) 
 
-design$tumourTypes = factor(design$tumourTypes,  
+hm.design$tumourTypes = factor(hm.design$tumourTypes,  
                             levels = c("Normal",  "Mucinous adenocarcinoma", 
                                        "Ductal carcinoma","Lobular carcinoma", "Ductual mixed with others ",
                                        "Ductal and lobular mixed", "Metaplastic carcinoma" ,"Other")) #other is a mix of few samples of different ones
@@ -731,9 +1166,9 @@ tumourTypCol = c("#009E73",  "#0072B2", "#D55E00","#56B4E9","#E69F00","#F0E442",
 
 tumourStgCol = c( "red","green","blue", "yellow2", "white")
 
-names(PAM50Col)<-levels(design$PAM50)
-names(tumourTypCol)<-levels(design$tumourTypes)
-names(tumourStgCol)<-levels(design$tumourStages)
+names(PAM50Col)<-levels(hm.design$PAM50)
+names(tumourTypCol)<-levels(hm.design$tumourTypes)
+names(tumourStgCol)<-levels(hm.design$tumourStages)
 
 annColour <-list(
   PAM50=PAM50Col,
@@ -741,7 +1176,9 @@ annColour <-list(
   tumourStages=tumourStgCol,
   gene_functions=thirteen_cols
 )
-######
+
+
+
 ######
 pheatmap::pheatmap(mat = as.matrix(all_geneExp), color = brewer.pal(name = "YlGnBu", n = 9),
                    clustering_distance_rows = 'manhattan', 
@@ -749,9 +1186,9 @@ pheatmap::pheatmap(mat = as.matrix(all_geneExp), color = brewer.pal(name = "YlGn
                    #scale="row",
                    annotation_col=hm.design,
                    annotation_colors = annColour,
-                   #annotation_row=ok_g_functions,
+                   annotation_row=ok_g_functions,
                    cluster_cols = T, cluster_rows = T, 
-                   show_rownames = F,show_colnames = F,
+                   show_rownames = T,show_colnames = F,
                    fontsize = 5)
 
 
