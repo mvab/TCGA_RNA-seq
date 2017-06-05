@@ -57,9 +57,11 @@ names(personal_metadata)[1]<-"patient"
 
 #other data from Kristoffer -> this dataset is more complete -> use this + personal data from the other
 
-brcadata<-read.table("brca_clinical_data_Kristoffer.txt", sep = '\t', header = T)
+brcadata<-read.table("clinical data/brca_clinical_data_Kristoffer.txt", sep = '\t', header = T)
 dim(brcadata)
 View(brcadata[1:10,1:10])
+
+View(brcadata[1:10,c("sampleID", "AJCC_Stage_nature2012", "PAM50Call_RNAseq", "PAM50_mRNA_nature2012")])
 
 brcadata_cancer <- brcadata[brcadata$sample_type == 'Primary Tumor',]
 rownames(brcadata_cancer)<-brcadata_cancer$X_PATIENT

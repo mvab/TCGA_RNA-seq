@@ -4,8 +4,11 @@ setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/DE
 class<- "PAM50"
 class<- "stages"
 class<- "morph"
-class<-"Group1"
-class<-"Group2"
+class<-"Group1" #PAM50 and stage
+class<-"Group2" #morphology and stage
+class<-"Group3" #PAM50 and morphology 
+class<-"GroupX" # PAM50, stge, morphology, all separate but in a single contr matrix
+class<-"Group4" # PAM50 and age
 
 
 DEgenes<- get(load(paste0(class, "_DE_genes_numbers3.rda")))
@@ -74,9 +77,9 @@ autoTF_DEgenes<-fisher_test(DEgenes,autoTF_DEgenes,N,K)
 
 
 # the resuts df
-autoALL_DEgenes
-autoCORE_DEgenes
-autoTF_DEgenes
+#autoALL_DEgenes
+#autoCORE_DEgenes
+#autoTF_DEgenes
 
 # saving data for easy Viewing 
 
@@ -88,9 +91,37 @@ all<-get(load(paste0("EA_", class, "_All_autophagy.rda")))
 core<-get(load(paste0("EA_", class, "_Core_autophagy.rda")))
 tf<-get(load(paste0("EA_", class, "_TF_autophagy.rda")))
 
-View(all)
-View(core)
-View(tf)
+#View(all)
+#View(core)
+#View(tf)
+
+getEnrichedAndSignificant<- function(my_table){
+  
+  #by p.adj
+  #table_up <- my_table[,c(1,4,10)]
+  #table_down <- my_table[,c(2,5,11)]
+  #table_both <- my_table[,c(3,6,12)]
+  #out_up<- table_up[table_up$up_oddsratio >=1 & table_up$up_pval.adj <=0.05,]
+  #out_down<- table_down[table_down$down_oddsratio >=1 & table_down$down_pval.adj <=0.05,]
+  #out_both<- table_both[table_both$both_oddsratio >=1 & table_both$both_pval.adj <=0.05,]
+  
+  #by just pval
+  table_up <- my_table[,c(1,4,7)]
+  table_down <- my_table[,c(2,5,8)]
+  table_both <- my_table[,c(3,6,9)]
+  out_up<- table_up[table_up$up_oddsratio >=1 & table_up$up_pval <=0.05,]
+  out_down<- table_down[table_down$down_oddsratio >=1 & table_down$down_pval <=0.05,]
+  out_both<- table_both[table_both$both_oddsratio >=1 & table_both$both_pval <=0.05,]  
+  
+  
+  
+  return(list(up = out_up, down = out_down, both = out_both))
+  
+}
+print(getEnrichedAndSignificant(all))
+print(getEnrichedAndSignificant(core))
+print(getEnrichedAndSignificant(tf))
+
 
 
 stop()

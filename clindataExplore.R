@@ -1,16 +1,18 @@
 setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data")
 
-# clinical data
-
+# clinical data subset
 clindata<-get(load("ClinicalData_needsfiltering.rda"))
-head(clindata)
+
 dim(clindata) #1097
+colnames(clindata)
 
 #convert age to years
 clindata$age_at_diag_years <- floor(clindata$age_at_diagnosis/365)
 
 #add year when diagnosed
 clindata$diag_year <- clindata$year_of_birth + clindata$age_at_diag_years
+
+head(clindata)
 
 clindata<-clindata[,c(3,2,5,6)]
 

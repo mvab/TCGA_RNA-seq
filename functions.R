@@ -44,7 +44,7 @@ renameMorph<- function(samples.matrix){
     if (is.na(morph[i])){
       morph_renm[i]<-  "Normal" 
     } else if (morph[i] == "unknown") {
-      morph_renm[i]<- "Other"  
+      morph_renm[i]<- "OtherMorph"  
     } else if (morph[i] == "female_84803") {
       morph_renm[i]<- "Mucinous adenocarcinoma"
     } else if (morph[i] =="female_85003" ){
