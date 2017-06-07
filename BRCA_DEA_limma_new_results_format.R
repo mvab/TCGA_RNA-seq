@@ -43,6 +43,47 @@ sampleTokeepSE <- PAMNPout$samplesToKeep
 dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
 dim(dataSE) 
 
+# exclude unknown satge and other mrphology samples
+removedsamples<-removeUnknownOther(dataSE, samples.matrix)
+dataSE<-removedsamples$dataSE
+samples.matrix<-removedsamples$samples.matrix
+dim(dataSE)
+dim(samples.matrix)
+
+keepOnly<-function(dataSE, samples.matrix){
+  
+  #morphology
+  samples.matrix[samples.matrix$tumourTypes=="Lobular carcinoma" | samples.matrix$tumourTypes== "Ductal carcinoma"| samples.matrix$tumourTypes== "Normal",]$barcode -> morph
+  length(morph)
+  samples.matrix<-samples.matrix[samples.matrix$barcode %in% morph,]
+  dim(samples.matrix)
+  
+  #stages
+  samples.matrix[samples.matrix$tumourStages!="unknown" & samples.matrix$tumourStages!="stage4",]$barcode -> stage
+  length(stage)
+  samples.matrix<-samples.matrix[samples.matrix$barcode %in% stage,]
+  dim(samples.matrix)
+  
+  #pam50
+  samples.matrix[samples.matrix$PAM50!="Normal-like",]$barcode -> pam50
+  length(pam50)
+  samples.matrix<-samples.matrix[samples.matrix$barcode %in% pam50,]
+  dim(samples.matrix)
+  
+  to_keep <- samples.matrix$barcode
+  length(to_keep)
+  
+  dataSE<-dataSE[, colnames(dataSE) %in% to_keep ]
+  dim(dataSE)
+  
+  return(list(dataSE=dataSE, samples.matrix=samples.matrix))
+  
+}
+
+onlysamples<-keepOnly(dataSE, samples.matrix)
+dataSE<-onlysamples$dataSE
+samples.matrix<-onlysamples$samples.matrix
+
 
 ### INTERVENE!
 samples.matrix[samples.matrix$participant == 'A07E',]
@@ -59,7 +100,7 @@ getGeneLenght_out<-getGeneLenght(dataSE)
 gene_lengths<-getGeneLenght_out$gene_lengths
 dataSE<-getGeneLenght_out$dataSE
 dim(dataSE)
-dim(gene_lengths)
+#dim(gene_lengths)
 
 # edgeR object
 dge <- DGEList(counts=dataSE, genes = data.frame(SYMBOL= as.character(gene_lengths$gene_name), Length= as.numeric(gene_lengths$gene_length)) ) #here will be adding genes: genes = Ann)
@@ -120,10 +161,10 @@ m_2_19 # "ASGR1" "RAB9B" "REP15" "KCNE2" unique here
 
 
 
-addSampleData<-function(y, samples.matrix){
+addSampleData<-function(y, samples.matrix) {
   
   # adding samples information
-  y$samples$condition <- as.factor(samples.matrix$condition)
+  #y$samples$condition <- as.factor(samples.matrix$condition)
   y$samples$PAM50 <- as.factor(samples.matrix$PAM50)
   y$samples$morphology <- as.factor(samples.matrix$tumourTypes) # from sample lists!
   y$samples$stages <- as.factor(samples.matrix$tumourStages) # from sample lists!
@@ -156,7 +197,7 @@ addSampleData<-function(y, samples.matrix){
   
   
   ## making normal the baselayer
-  y$samples$condition = relevel(y$samples$condition, ref="normal")
+  #y$samples$condition = relevel(y$samples$condition, ref="normal")
   y$samples$PAM50 = relevel(y$samples$PAM50, ref="Normal")
   y$samples$morphology = relevel(y$samples$morphology, ref="Normal")
   y$samples$stages = relevel(y$samples$stages, ref="Normal")
@@ -194,12 +235,17 @@ y <- calcNormFactors(dge)
 #design <- model.matrix(~0+PAM50, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
 #design <- model.matrix(~tss+PAM50  +morphology + stages + age +year , data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
 
-design <- model.matrix(~ 0+  morphology +stages +age  + tss + year, data=y$samples)
-design <- model.matrix(~0 + PAM50+ morphology +  stages+  age  + tss + year , data=y$samples) #nested interaction # makes all possible pairings (alt to manual contarsts)
+design <- model.matrix(~ 0+ stages + PAM50  +age  + tss + year, data=y$samples)
+design <- model.matrix(~0+PAM50+ morphology +  stages+  age  + tss + year , data=y$samples) #nested interaction # makes all possible pairings (alt to manual contarsts)
 design <- model.matrix(~0 +  Group1 + PAM50 +   age + stages  + morphology + tss + year , data=y$samples) #nested interaction # makes all possible pairings (alt to manual contarsts)
 
 is.fullrank(design)
 nonEstimable(design)
+
+# chack for linearly dependent columns
+rankifremoved <- sapply(1:ncol(design), function (x) qr(design[,-x])$rank)
+which(rankifremoved == max(rankifremoved))
+colnames(design)[2:18]
 
 #design <- model.matrix(~0+Group1, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
 
@@ -219,6 +265,7 @@ colnames(design) <- gsub("-", "", colnames(design))
 #colnames(design) <- gsub(":t", "t", colnames(design))
 
 colnames(design) 
+write.csv(design, file="testdesign.csv")
 
 colnames(design)[1]<-"Normal"
 
@@ -1110,31 +1157,31 @@ contr.matrix <- makeContrasts( LumAvsLumB = LuminalA - LuminalB,     #unique com
                                LumAvsBasal = LuminalA - BasalLike,
                                LumAvsHER2 = LuminalA - HER2enriched,
                                LumAvsNormLike = LuminalA - NormalLike,
-                               LumAvsNormal = LuminalA,# - Normal,
+                               LumAvsNormal = LuminalA - Normal,
                                #
                                LumBvsLumA = LuminalB - LuminalA,
                                LumBvsBasal = LuminalB - BasalLike,
                                LumBvsHER2 = LuminalB - HER2enriched,
                                LumBvsNormLike = LuminalB - NormalLike,
-                               LumBvsNormal = LuminalB,# - Normal,
+                               LumBvsNormal = LuminalB - Normal,
                                #
                                BasalvsLumA = BasalLike- LuminalA,
                                BasalvsLumB = BasalLike- LuminalB,
                                BasalvsHER2 = BasalLike- HER2enriched,
                                BasalvsNormLike = BasalLike - NormalLike,
-                               BasalvsNormal = BasalLike ,#- Normal,
+                               BasalvsNormal = BasalLike - Normal,
                                #
                                HER2vsLumA = HER2enriched- LuminalA,
                                HER2vsLumB = HER2enriched- LuminalB,
                                HER2vsBasal = HER2enriched- BasalLike,
                                HER2vsNormLike = HER2enriched - NormalLike,
-                               HER2vsNormal = HER2enriched ,#- Normal,
+                               HER2vsNormal = HER2enriched - Normal,
                                #
                                NormalLikevsLumA = NormalLike- LuminalA,
                                NormalLikevsLumB = NormalLike- LuminalB,
                                NormalLikevsBasal = NormalLike- BasalLike,
                                NormalLikevsHER2 = NormalLike- HER2enriched,
-                               NormalLikevsNormal =NormalLike ,#- Normal,
+                               NormalLikevsNormal =NormalLike - Normal,
                                
                                levels = colnames(design)) 
 

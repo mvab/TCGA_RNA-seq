@@ -68,7 +68,7 @@ dim(RPKM)
 ##### if want to look at specific subtype
 
 
-keep_subtype<-samples.matrix[samples.matrix$PAM50=="Luminal B" | samples.matrix$PAM50=="Normal",]$barcode
+keep_subtype<-samples.matrix[samples.matrix$PAM50=="Normal-like" | samples.matrix$PAM50=="Normal",]$barcode
 RPKM<- RPKM[,colnames(RPKM) %in% keep_subtype]
 dim(RPKM)
 
@@ -111,7 +111,8 @@ head(stage_averages)
 #### extract data only for autophagy genes
 getAutophagyGenes <- function(dataSE){
   
-  autophagy_genes<- as.vector(read.table("autopahagy_genes.txt", as.is = T, header = FALSE))$V1
+  autophagy_genes<- as.vector(read.table
+    ("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/transcription_factors.txt", as.is = T, header = FALSE))$V1
   all_genes<-rownames(dataSE)
   shared <- intersect(autophagy_genes,all_genes)
   newdataSE<- dataSE[c(shared),]
@@ -123,23 +124,43 @@ getAutophagyGenes <- function(dataSE){
 } 
 dim (stage_averages)
 stage_averages <- getAutophagyGenes(stage_averages)
-
+dim (stage_averages)
 
 
 
 #we create the Mfuzz object (ExpressionSet)
 exprSet=ExpressionSet(assayData=stage_averages)
 
+
+
+#As a first step,  we exclude genes with more than 25% of the measurements missing
+#-> genes with 0 RPKM in 25% of the conditions
 exprSet.r <- filter.NA(exprSet, thres=0.25) 
 
+#Fuzzy  c-means  like  many  other  cluster  algorithms,  does  not  allow  for  missing  values.
+#Thus,  we  timelace  remaining  missing  values  by  the  average  values  expression  value
+#of  the corresponding gene.
+#Methods for replacement of missing values. Missing values should be indicated by NA in #the expression matrix.
+#Mode method for replacement of missing values:
+#mean- missing values will be replaced by the mean expression value of the gene,
+#median- missing values will be replaced by the median expression value of the gene,
+#knn- missing values will be replaced by the averging over the corresponding expression    #values of the k-nearest neighbours,
+#knnw-same replacement method as knn, but the expression values averaged are #weighted by the distance to the corresponding neighbour
 
 #replace missing values with means
 exprSet.f <- fill.NA(exprSet.r,mode="mean") 
 
+
+#As soft clustering is noise robust, pre-filtering can usually be avoided.
+#However, if the number of genes with small expression changes is large, such pre-filtering #may be necessary to reduce noise.
+#This function can be used to exclude genes with low standard deviation.
+#min.std : threshold for minimum standard deviation.
+#If the standard deviation of a gene's expression is smaller than min.std the corresponding #gene will be excluded.
+
 #Calculation the standard deviation shows, however,
 #that the transition between low and high values for variation in 
 #gene expression is smooth and no particular cut-off point is indicated 
-tmp <- filter.std(exprSet.f,min.std=0) #genes with lower std will be excluded
+tmp <- filter.std(exprSet.f,min.std=0.3, visu=FALSE) #genes with lower std will be excluded
 
 
 #setdiff(rownames(exprSet.f), rownames(tmp))
@@ -147,13 +168,17 @@ tmp <- filter.std(exprSet.f,min.std=0) #genes with lower std will be excluded
 
 
 
+
 #Since the clustering is performed in Euclidian space, the expression values of 
 #genes were standardised to have a mean value of zero and a standard deviation of one. 
+#Importantly, Mfuzz assumes that the given expression data are fully preprocessed 
+#including  any  data  normalisation.
+#The  function standardise does  not  replace  the  normalisation step (eg RPKN #normalization).
 #This step ensures that vectors of genes with similar changes in expression are close
 #in Euclidean space:
 
 exprSet.s <- standardise(tmp)  #NB this step makes expression between genes COMPARABLE
-
+dim(exprSet.s)
 # c is the number of clusters 
 # m is the fuzziness parameter ->
 
@@ -166,96 +191,75 @@ m1=mestimate(exprSet.s)
 m1
 
 
+
+current_test <- "all_genes_all_samples"
+current_test <- "autophagy_genes_all_samples"
+current_test <- "autocore_genes_all_samples"
+current_test <- "transcrfactors_all_samples"
+
+
 #c1 =cselection(exprSet.s, m=m1, crange=seq(4,32,2),repeats=5,visu=TRUE)
 
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_with_genedata/NormalLike_samples/")
 
+# for preview
+cl <- mfuzz(exprSet.s,c=3,m=m1) 
+mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0, time.labels=colnames(stage_averages), new.window = T)
 
-cl <- mfuzz(exprSet.s,c=6,m=m1) 
-mfuzz.plot(exprSet.s,cl=cl,mfrow=c(2,3), time.labels=colnames(stage_averages))
+#for saving
+pdf(file=paste0(current_test,".pdf"))
+mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0, time.labels=colnames(stage_averages), new.window = F)
+dev.off()
 
-
-
-
-cl <- mfuzz(exprSet.s,c=9,m=m1) 
-mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3), time.labels=colnames(stage_averages))
+pdf(file=paste0(current_test,"_members_above_0.6_membership.pdf"))
+mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0.6, time.labels=colnames(stage_averages), new.window = F)
+dev.off()
+#par(mfrow=c(1,1))
+#O <- overlap(cl) 
+#ov.tmp <- overlap.plot(cl,over=O,thres=0.05)
 
 
 #To extract list of genes belonging to the cluster cores, the acore function can be used.
+cores<-acore(exprSet.s,cl=cl,min.acore=0.6)
 
-cores<-acore(exprSet.s,cl=cl,min.acore=0.5)
+#make a list object with gene names for each cluster
+cluster_data<-list()
+# get total number of genes after filetering : std=0.3, membership  >0.6
+gene_sum=0
 
-View(cores)
-head(cores[[1]])
-her2_stage1_peak_cluster<-rownames(cores[[1]])
-lumB_stage1_peak_cluster<-rownames(cores[[3]])
+for ( i in 1:dim(summary(cores))[1]){
+  print (paste( "Cluster", i, ":" , dim(cores[[i]])[1] ))
+  this_cluster<-as.character(paste0("cluster",i))
+  cluster_data[[this_cluster]]<-rownames(cores[[i]])
+  gene_sum=gene_sum+dim(cores[[i]])[1]
+}
 
-(duplicated(lumB_stage1_peak_cluster,her2_stage1_peak_cluster))
+cluster_data
+gene_sum
 
+#clusters don't overlap!
 
-tail(lumB_stage1_peak_cluster)
-tail(her2_stage1_peak_cluster)
-
-
-# coupling/ similarity between clusters
-O <- overlap(cl) 
-Ptmp <- overlap.plot(cl,overlap = O,thres=0.05)
-
-
-
-
-
-
-######    NEXT :: explore stages at diff PAM50
- # 8
+save(cluster_data, file= paste0(current_test, "_cluster_data.rda"))
 
 
 
+###############################################
+
+#testing loading the data:
+data<-get(load("autophagy_genes_all_samples_cluster_data.rda"))
+
+#explore data list (run this loop)
+
+gene_sum=0
+for ( i in names(data)){
+  print (paste( i, ":" , length(data[[i]]) ))
+  gene_sum=gene_sum+dim(cores[[i]])[1]
+}
 
 
+# total number of genes after filtering and clustring in this data group (std=0.3, membership  >0.6)
+gene_sum
 
-
-
-
-#----------------------------------------
-#As a first step,  we exclude genes with more than 25% of the measurements missing
-#-> genes with 0 RPKM in 25% of the conditions
-exprSet.r=filter.NA(exprSet, thres=0.25)
-#----------------------------------------
-#----------------------------------------
-#Fuzzy  c-means  like  many  other  cluster  algorithms,  does  not  allow  for  missing  values.
-#Thus,  we  timelace  remaining  missing  values  by  the  average  values  expression  value
-#of  the corresponding gene.
-#Methods for replacement of missing values. Missing values should be indicated by NA in #the expression matrix.
-#Mode method for replacement of missing values:
-#mean- missing values will be replaced by the mean expression value of the gene,
-#median- missing values will be replaced by the median expression value of the gene,
-#knn- missing values will be replaced by the averging over the corresponding expression    #values of the k-nearest neighbours,
-#knnw-same replacement method as knn, but the expression values averaged are #weighted by the distance to the corresponding neighbour
-exprSet.f=fill.NA(exprSet.r,mode='mean')
-
-
-#As soft clustering is noise robust, pre-filtering can usually be avoided.
-#However, if the number of genes with small expression changes is large, such pre-filtering #may be necessary to reduce noise.
-#This function can be used to exclude genes with low standard deviation.
-#min.std : threshold for minimum standard deviation.
-#If the standard deviation of a gene's expression is smaller than min.std the corresponding #gene will be excluded.
-tmp=filter.std(exprSet.f,min.std=0, visu=FALSE)
-#----------------------------------------
-#----------------------------------------
-#Since  the  clustering  is  performed  in  Euclidian  space,  the  expression  values  of  genes  #were standardised to have a mean value of zero and a standard deviation of one.  This #step ensures
-#that vectors of genes with similar changes in expression are close in Euclidean space
-#Importantly, Mfuzz assumes that the given expression data are fully preprocessed #including  any  data  normalisation.
-#The  function standardise does  not  replace  the  normalisation step (eg RPKN #normalization).
-exprSet.s=standardise(tmp)
-
-
-
-#clustering
-
-#here you can choose the number of clusters, as example here, 4 clusters
-
-m1=mestimate(exprSet.s)
-cl=mfuzz(exprSet.s,c=4,m=m1)
-
-
+#e.g.
+cluster1<-data[[1]]
 

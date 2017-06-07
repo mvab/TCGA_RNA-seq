@@ -229,6 +229,25 @@ getGeneLenght<-function(dataSE){
 
 
 
+## funtion to just remove unknoen anf other samples 
+removeUnknownOther <- function(dataSE, samples.matrix){
+  samples.matrix[samples.matrix$tumourTypes=="OtherMorph",]$barcode -> other
+  samples.matrix[samples.matrix$tumourStages=="unknown",]$barcode -> unknown
+  
+  print(paste( length(other), "other morphology samples to remove"))
+  print(paste( length(unknown), "unknown stage samples to remove"))
+  to_remove<- (c(as.character(other), as.character(unknown)))
+  
+  samples.matrix<-samples.matrix[!samples.matrix$barcode %in% to_remove,]
+  dim(samples.matrix)
+  dataSE<-dataSE[, !colnames(dataSE) %in% to_remove ]
+  dim(dataSE)
+  
+  return(list(dataSE=dataSE, samples.matrix=samples.matrix))
+}
+
+
+
 
 
 addBRCAReceptorStatus <- function(samples.matrix){

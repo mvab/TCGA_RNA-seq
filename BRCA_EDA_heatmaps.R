@@ -181,7 +181,7 @@ length(intersect(pam50,auto_genes))#9
 
 ##################
 
-pheatmap::pheatmap(mat = as.matrix(EM2c), color = brewer.pal(name = "YlGnBu", n = 9),
+pheatmap::pheatmap(mat = as.matrix(EM), color = brewer.pal(name = "YlGnBu", n = 9),
                    #clustering_distance_rows = 'euclidean', 
                    #clustering_distance_cols = 'euclidean',
                    #clustering_distance_rows = 'correlation',
@@ -191,7 +191,7 @@ pheatmap::pheatmap(mat = as.matrix(EM2c), color = brewer.pal(name = "YlGnBu", n 
                    #scale="row",
                    annotation_col=design,
                    annotation_colors = annColour,
-                   #annotation_row=ok_g_functions,
+                   annotation_row=ok_g_functions,
                    cluster_cols = T, cluster_rows = T, 
                    show_rownames = F,show_colnames = F,
                    fontsize = 5)

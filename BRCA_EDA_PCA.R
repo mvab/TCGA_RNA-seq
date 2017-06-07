@@ -104,7 +104,7 @@ pca <- prcomp(x=t(EM), scale=TRUE, center=TRUE)
 # Inspect components
 summary(pca)
 #type                               
-qplot(data=as.data.frame(pca$x), x=PC1, y=PC2, geom=c("point"), color=samples.matrix$condition)
+qplot(data=as.data.frame(pca$x), x=PC1, y=PC2, geom=c("point"), color=samples.matrix$PAM50)
 
 #PAM50 status
 ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$PAM50))+ #, shape =samples.matrix$tumourType
