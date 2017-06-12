@@ -33,7 +33,25 @@ sampleTokeepSE <- PAMNPout$samplesToKeep
 dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
 dim(dataSE) 
 
-## 
+## exclude mrphology samples Ductal mixed with Others
+
+removeUnknownOther <- function(dataSE, samples.matrix){
+  samples.matrix[samples.matrix$tumourTypes=="Ductual mixed with others",]$barcode -> to_remove
+  to_remove<- as.character(to_remove)
+  
+  samples.matrix<-samples.matrix[!samples.matrix$barcode %in% to_remove,]
+  dim(samples.matrix)
+  dataSE<-dataSE[, !colnames(dataSE) %in% to_remove ]
+  dim(dataSE)
+  
+  return(list(dataSE=dataSE, samples.matrix=samples.matrix))
+}
+
+removedsamples<-removeUnknownOther(dataSE, samples.matrix)
+dataSE<-removedsamples$dataSE
+samples.matrix<-removedsamples$samples.matrix
+dim(dataSE)
+dim(samples.matrix)
 
 #get gene lenghts for genes in the analysis : NB this 
 getGeneLenght_out<-getGeneLenght(dataSE)
@@ -52,30 +70,40 @@ yr <- calcNormFactors(dge)
 RPKM <- rpkm(yr)
 dim(RPKM) #17368   984 matrix
 
-# get genes that have exp >1 rpkm in at least 12 samples
-keep.exprs<-c()
-filt.exprs <- rowSums(RPKM > 1) >=12 
-for (i in 1:length(filt.exprs )){
-  if (as.vector(filt.exprs [i]) == TRUE) {
-    keep.exprs<-append(keep.exprs, names(filt.exprs [i]))
-  }
-}
-length(keep.exprs)
+## load gene list that you want to be in the analysis
+genelist<-get(load("genes_for_DEA.rda"))
+genelist<-get(load("stages_DE_genes.rda"))
+genelist<-get(load("group1_DE_genes.rda"))
+genelist<-get(load("pam50_DE_genes.rda"))
 
-RPKM <- RPKM[rownames(RPKM) %in% keep.exprs, ]
-dim(RPKM)
+length(genelist)
+RPKM<- RPKM[rownames(RPKM) %in% genelist, ]
+dim(RPKM) 
+
+
+#autophagy_genes<- as.vector(read.table("transcription_factors.txt", as.is = T, header = FALSE))$V1
+#shared <- intersect(autophagy_genes,rownames(RPKM))
+#print(paste0("Total number of genes in analysis: ", length(rownames(RPKM))))
+#print(paste0("Autophagy genes: ", length(shared)))
 
 ##### if want to look at specific subtype
 
 
-keep_subtype<-samples.matrix[samples.matrix$PAM50=="Normal-like" | samples.matrix$PAM50=="Normal",]$barcode
-RPKM<- RPKM[,colnames(RPKM) %in% keep_subtype]
-dim(RPKM)
+keep_subtype<-samples.matrix[samples.matrix$PAM50=="Basal-like" & samples.matrix$morphology=="Ductal carcinoma" | samples.matrix$PAM50=="Normal",]$barcode
+RPKMx<- RPKM[,colnames(RPKM) %in% keep_subtype]
+dim(RPKMx)
+
+
+keep_subtype<-samples.matrix[samples.matrix$PAM50=="Luminal A" | samples.matrix$PAM50=="Normal",]$barcode
+RPKMx<- RPKM[,colnames(RPKM) %in% keep_subtype]
+dim(RPKMx)
+
+
 
 
 # remove samples whose stage is unknowm
 known_stage<-samples.matrix[samples.matrix$tumourStages!='unknown',]$barcode
-RPKM<- RPKM[,colnames(RPKM) %in% known_stage]
+RPKM<- RPKMy[,colnames(RPKMy) %in% known_stage]
 dim(RPKM)
 
 # create a rpkm matrix that has a column per 'time point', i.e. stage
@@ -112,7 +140,7 @@ head(stage_averages)
 getAutophagyGenes <- function(dataSE){
   
   autophagy_genes<- as.vector(read.table
-    ("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/transcription_factors.txt", as.is = T, header = FALSE))$V1
+    ("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/autophagic_core.txt", as.is = T, header = FALSE))$V1
   all_genes<-rownames(dataSE)
   shared <- intersect(autophagy_genes,all_genes)
   newdataSE<- dataSE[c(shared),]
@@ -127,6 +155,8 @@ stage_averages <- getAutophagyGenes(stage_averages)
 dim (stage_averages)
 
 
+
+####### MFUZZ #######
 
 #we create the Mfuzz object (ExpressionSet)
 exprSet=ExpressionSet(assayData=stage_averages)
@@ -160,11 +190,16 @@ exprSet.f <- fill.NA(exprSet.r,mode="mean")
 #Calculation the standard deviation shows, however,
 #that the transition between low and high values for variation in 
 #gene expression is smooth and no particular cut-off point is indicated 
-tmp <- filter.std(exprSet.f,min.std=0.3, visu=FALSE) #genes with lower std will be excluded
+tmp <- filter.std(exprSet.f,min.std=0, visu=FALSE) #genes with lower std will be excluded
 
-
+dim(tmp)
 #setdiff(rownames(exprSet.f), rownames(tmp))
 
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/")
+autophagy_genes<- as.vector(read.table("autopahagy_genes.txt", as.is = T, header = FALSE))$V1
+shared <- intersect(autophagy_genes,rownames(tmp))
+print(paste0("Total number of genes in analysis: ", length(rownames(tmp))))
+print(paste0("Autophagy genes: ", length(shared)))
 
 
 
@@ -200,13 +235,14 @@ current_test <- "transcrfactors_all_samples"
 
 #c1 =cselection(exprSet.s, m=m1, crange=seq(4,32,2),repeats=5,visu=TRUE)
 
-setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_with_genedata/NormalLike_samples/")
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_for_EA/")
 
 # for preview
-cl <- mfuzz(exprSet.s,c=3,m=m1) 
-mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0, time.labels=colnames(stage_averages), new.window = T)
+cl <- mfuzz(exprSet.s,c=9,m=m1) 
+mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0.6, time.labels=colnames(stage_averages), new.window = T)
 
 #for saving
+current_test <- "group1_lumA_genesforDEA"
 pdf(file=paste0(current_test,".pdf"))
 mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0, time.labels=colnames(stage_averages), new.window = F)
 dev.off()
@@ -238,7 +274,7 @@ cluster_data
 gene_sum
 
 #clusters don't overlap!
-
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_for_EA/")
 save(cluster_data, file= paste0(current_test, "_cluster_data.rda"))
 
 

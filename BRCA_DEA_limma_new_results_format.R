@@ -44,53 +44,31 @@ dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
 dim(dataSE) 
 
 # exclude unknown satge and other mrphology samples
+#removedsamples<-removeUnknownOther(dataSE, samples.matrix)
+#dataSE<-removedsamples$dataSE
+#samples.matrix<-removedsamples$samples.matrix
+#dim(dataSE)
+#dim(samples.matrix)
+
+# exclude mrphology samples Ductal mixed with Others
+
+removeUnknownOther <- function(dataSE, samples.matrix){
+  samples.matrix[samples.matrix$tumourTypes=="Ductual mixed with others",]$barcode -> to_remove
+  to_remove<- as.character(to_remove)
+  
+  samples.matrix<-samples.matrix[!samples.matrix$barcode %in% to_remove,]
+  dim(samples.matrix)
+  dataSE<-dataSE[, !colnames(dataSE) %in% to_remove ]
+  dim(dataSE)
+  
+  return(list(dataSE=dataSE, samples.matrix=samples.matrix))
+}
+
 removedsamples<-removeUnknownOther(dataSE, samples.matrix)
 dataSE<-removedsamples$dataSE
 samples.matrix<-removedsamples$samples.matrix
 dim(dataSE)
 dim(samples.matrix)
-
-keepOnly<-function(dataSE, samples.matrix){
-  
-  #morphology
-  samples.matrix[samples.matrix$tumourTypes=="Lobular carcinoma" | samples.matrix$tumourTypes== "Ductal carcinoma"| samples.matrix$tumourTypes== "Normal",]$barcode -> morph
-  length(morph)
-  samples.matrix<-samples.matrix[samples.matrix$barcode %in% morph,]
-  dim(samples.matrix)
-  
-  #stages
-  samples.matrix[samples.matrix$tumourStages!="unknown" & samples.matrix$tumourStages!="stage4",]$barcode -> stage
-  length(stage)
-  samples.matrix<-samples.matrix[samples.matrix$barcode %in% stage,]
-  dim(samples.matrix)
-  
-  #pam50
-  samples.matrix[samples.matrix$PAM50!="Normal-like",]$barcode -> pam50
-  length(pam50)
-  samples.matrix<-samples.matrix[samples.matrix$barcode %in% pam50,]
-  dim(samples.matrix)
-  
-  to_keep <- samples.matrix$barcode
-  length(to_keep)
-  
-  dataSE<-dataSE[, colnames(dataSE) %in% to_keep ]
-  dim(dataSE)
-  
-  return(list(dataSE=dataSE, samples.matrix=samples.matrix))
-  
-}
-
-onlysamples<-keepOnly(dataSE, samples.matrix)
-dataSE<-onlysamples$dataSE
-samples.matrix<-onlysamples$samples.matrix
-
-
-### INTERVENE!
-samples.matrix[samples.matrix$participant == 'A07E',]
-samples.matrix[samples.matrix$participant == 'A07E',]$PAM50 <- "Normal-like"
-samples.matrix[samples.matrix$participant == 'A07E',]$tumourStages <- 'stage4'
-
-samples.matrix[samples.matrix$participant == 'A1XW', ]$tumourStages <- 'unknown'
 
 
 ## 
@@ -141,6 +119,9 @@ cpm <- cpm(dge, log=FALSE)
 keep.exprs <- rowSums(cpm > 2) >= 19
 dge <- dge[keep.exprs,, keep.lib.sizes=FALSE]
 dim(dge) # 
+genes_for_DEA<-rownames(dge)
+
+#save(genes_for_DEA, file = "genes_for_DEA.rda")
 
 #check autophagy in the current geneset
 #autophagy_genes<- as.vector(read.table("autopahagy_genes.txt", as.is = T, header = FALSE))$V1
@@ -214,6 +195,8 @@ dge<-addSampleData(dge,samples.matrix)
 #in terms of parameters such as quantiles
 y <- calcNormFactors(dge)
 
+
+
 #trying MDS condition 
 #condition <- substring(y$samples$condition,1,6) 
 
@@ -235,29 +218,33 @@ y <- calcNormFactors(dge)
 #design <- model.matrix(~0+PAM50, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
 #design <- model.matrix(~tss+PAM50  +morphology + stages + age +year , data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
 
-design <- model.matrix(~ 0+ stages + PAM50  +age  + tss + year, data=y$samples)
-design <- model.matrix(~0+PAM50+ morphology +  stages+  age  + tss + year , data=y$samples) #nested interaction # makes all possible pairings (alt to manual contarsts)
-design <- model.matrix(~0 +  Group1 + PAM50 +   age + stages  + morphology + tss + year , data=y$samples) #nested interaction # makes all possible pairings (alt to manual contarsts)
+design <- model.matrix(~ 0 + stages + age  + tss + year, data=y$samples)
+design <- model.matrix(~ 0 + PAM50 + age  + tss + year , data=y$samples) 
+design <- model.matrix(~ 0 + morphology + age + tss + year , data=y$samples) 
+design <- model.matrix(~ 0 + Group1 + age + tss + year , data=y$samples) 
+design <- model.matrix(~ 0 + Group2 + age + tss + year , data=y$samples) 
+design <- model.matrix(~ 0 + Group3 + age + tss + year , data=y$samples) 
+
 
 is.fullrank(design)
 nonEstimable(design)
 
-# chack for linearly dependent columns
-rankifremoved <- sapply(1:ncol(design), function (x) qr(design[,-x])$rank)
-which(rankifremoved == max(rankifremoved))
-colnames(design)[2:18]
+# check for linearly dependent columns
+#rankifremoved <- sapply(1:ncol(design), function (x) qr(design[,-x])$rank)
+#which(rankifremoved == max(rankifremoved))
+#colnames(design)[2:18]
 
 #design <- model.matrix(~0+Group1, data=y$samples) #setting up model contrasts is more straight forward in the absence of an intercept for
 
 colnames(design) <- gsub("Group1", "", colnames(design))
 colnames(design) <- gsub("Group2", "", colnames(design))
-colnames(design) <- gsub("Group4", "", colnames(design))
+colnames(design) <- gsub("Group3", "", colnames(design))
 colnames(design) <- gsub("PAM50", "", colnames(design))
 colnames(design) <- gsub("morphology", "", colnames(design))
 colnames(design) <- gsub("stages", "", colnames(design))
+
+
 colnames(design) <- gsub(":age", ":", colnames(design))
-
-
 colnames(design) <- gsub(" ", "", colnames(design))
 colnames(design) <- gsub("-l", "L", colnames(design))
 colnames(design) <- gsub("-", "", colnames(design))
@@ -265,9 +252,7 @@ colnames(design) <- gsub("-", "", colnames(design))
 #colnames(design) <- gsub(":t", "t", colnames(design))
 
 colnames(design) 
-write.csv(design, file="testdesign.csv")
-
-colnames(design)[1]<-"Normal"
+#write.csv(design, file="testdesign.csv")
 
 # contr matrices
 #######       
@@ -373,118 +358,98 @@ contr.matrix <- makeContrasts(
   stage1.LumAvsBasal = LuminalA.stage1 - BasalLike.stage1,
   stage1.LumAvsHER2 = LuminalA.stage1 - HER2enriched.stage1,
   stage1.LumAvsNormLike = LuminalA.stage1 - NormalLike.stage1,
-  stage1.LumAvsNormal = LuminalA.stage1 - Normal.Normal,
-  
+
   stage1.LumBvsLumA = LuminalB.stage1 - LuminalA.stage1,
   stage1.LumBvsBasal = LuminalB.stage1 - BasalLike.stage1,
   stage1.LumBvsHER2 = LuminalB.stage1 - HER2enriched.stage1,
   stage1.LumBvsNormLike = LuminalB.stage1 - NormalLike.stage1,
-  stage1.LumBvsNormal = LuminalB.stage1 - Normal.Normal,
-  
+
   stage1.BasalvsLumA = BasalLike.stage1- LuminalA.stage1,
   stage1.BasalvsLumB = BasalLike.stage1- LuminalB.stage1,
   stage1.BasalvsHER2 = BasalLike.stage1- HER2enriched.stage1,
   stage1.BasalvsNormLike = BasalLike.stage1 - NormalLike.stage1,
-  stage1.BasalvsNormal = BasalLike.stage1 - Normal.Normal,
-  
+
   stage1.HER2vsLumA = HER2enriched.stage1- LuminalA.stage1,
   stage1.HER2vsLumB = HER2enriched.stage1- LuminalB.stage1,
   stage1.HER2vsBasal = HER2enriched.stage1- BasalLike.stage1,
   stage1.HER2vsNormLike = HER2enriched.stage1 - NormalLike.stage1,
-  stage1.HER2vsNormal = HER2enriched.stage1 - Normal.Normal,
-  
+
   stage1.NormalLikevsLumA = NormalLike.stage1- LuminalA.stage1,
   stage1.NormalLikevsLumB = NormalLike.stage1- LuminalB.stage1,
   stage1.NormalLikevsBasal = NormalLike.stage1- BasalLike.stage1,
   stage1.NormalLikevsHER2 = NormalLike.stage1- HER2enriched.stage1,
-  stage1.NormalLikevsNormal =NormalLike.stage1 - Normal.Normal,     
-  
-  
+
   
   
   stage2.LumAvsLumB = LuminalA.stage2 - LuminalB.stage2,     
   stage2.LumAvsBasal = LuminalA.stage2 - BasalLike.stage2,
   stage2.LumAvsHER2 = LuminalA.stage2 - HER2enriched.stage2,
   stage2.LumAvsNormLike = LuminalA.stage2 - NormalLike.stage2,
-  stage2.LumAvsNormal = LuminalA.stage2 - Normal.Normal,
-  
+
   stage2.LumBvsLumA = LuminalB.stage2 - LuminalA.stage2,
   stage2.LumBvsBasal = LuminalB.stage2 - BasalLike.stage2,
   stage2.LumBvsHER2 = LuminalB.stage2 - HER2enriched.stage2,
   stage2.LumBvsNormLike = LuminalB.stage2 - NormalLike.stage2,
-  stage2.LumBvsNormal = LuminalB.stage2 - Normal.Normal,
-  
+
   stage2.BasalvsLumA = BasalLike.stage2- LuminalA.stage2,
   stage2.BasalvsLumB = BasalLike.stage2- LuminalB.stage2,
   stage2.BasalvsHER2 = BasalLike.stage2- HER2enriched.stage2,
   stage2.BasalvsNormLike = BasalLike.stage2 - NormalLike.stage2,
-  stage2.BasalvsNormal = BasalLike.stage2 - Normal.Normal,
-  
+
   stage2.HER2vsLumA = HER2enriched.stage2- LuminalA.stage2,
   stage2.HER2vsLumB = HER2enriched.stage2- LuminalB.stage2,
   stage2.HER2vsBasal = HER2enriched.stage2- BasalLike.stage2,
   stage2.HER2vsNormLike = HER2enriched.stage2 - NormalLike.stage2,
-  stage2.HER2vsNormal = HER2enriched.stage2 - Normal.Normal,
-  
+
   stage2.NormalLikevsLumA = NormalLike.stage2- LuminalA.stage2,
   stage2.NormalLikevsLumB = NormalLike.stage2- LuminalB.stage2,
   stage2.NormalLikevsBasal = NormalLike.stage2- BasalLike.stage2,
   stage2.NormalLikevsHER2 = NormalLike.stage2- HER2enriched.stage2,
-  stage2.NormalLikevsNormal =NormalLike.stage2 - Normal.Normal,  
-  
+
   
   
   stage3.LumAvsLumB = LuminalA.stage3 - LuminalB.stage3,     
   stage3.LumAvsBasal = LuminalA.stage3 - BasalLike.stage3,
   stage3.LumAvsHER2 = LuminalA.stage3 - HER2enriched.stage3,
   stage3.LumAvsNormLike = LuminalA.stage3 - NormalLike.stage3,
-  stage3.LumAvsNormal = LuminalA.stage3 - Normal.Normal,
-  
+
   stage3.LumBvsLumA = LuminalB.stage3 - LuminalA.stage3,
   stage3.LumBvsBasal = LuminalB.stage3 - BasalLike.stage3,
   stage3.LumBvsHER2 = LuminalB.stage3 - HER2enriched.stage3,
   stage3.LumBvsNormLike = LuminalB.stage3 - NormalLike.stage3,
-  stage3.LumBvsNormal = LuminalB.stage3 - Normal.Normal,
-  
+
   stage3.BasalvsLumA = BasalLike.stage3- LuminalA.stage3,
   stage3.BasalvsLumB = BasalLike.stage3- LuminalB.stage3,
   stage3.BasalvsHER2 = BasalLike.stage3- HER2enriched.stage3,
   stage3.BasalvsNormLike = BasalLike.stage3 - NormalLike.stage3,
-  stage3.BasalvsNormal = BasalLike.stage3 - Normal.Normal,
-  
+
   stage3.HER2vsLumA = HER2enriched.stage3- LuminalA.stage3,
   stage3.HER2vsLumB = HER2enriched.stage3- LuminalB.stage3,
   stage3.HER2vsBasal = HER2enriched.stage3- BasalLike.stage3,
   stage3.HER2vsNormLike = HER2enriched.stage3 - NormalLike.stage3,
-  stage3.HER2vsNormal = HER2enriched.stage3 - Normal.Normal,
-  
+
   stage3.NormalLikevsLumA = NormalLike.stage3- LuminalA.stage3,
   stage3.NormalLikevsLumB = NormalLike.stage3- LuminalB.stage3,
   stage3.NormalLikevsBasal = NormalLike.stage3- BasalLike.stage3,
   stage3.NormalLikevsHER2 = NormalLike.stage3- HER2enriched.stage3,
-  stage3.NormalLikevsNormal =NormalLike.stage3 - Normal.Normal,         
-  
+
   
   stage4.LumAvsLumB = LuminalA.stage4 - LuminalB.stage4,     
   stage4.LumAvsBasal = LuminalA.stage4 - BasalLike.stage4,
   stage4.LumAvsHER2 = LuminalA.stage4 - HER2enriched.stage4,
-  stage4.LumAvsNormal = LuminalA.stage4 - Normal.Normal,
-  
+
   stage4.LumBvsLumA = LuminalB.stage4 - LuminalA.stage4,
   stage4.LumBvsBasal = LuminalB.stage4 - BasalLike.stage4,
   stage4.LumBvsHER2 = LuminalB.stage4 - HER2enriched.stage4,
-  stage4.LumBvsNormal = LuminalB.stage4 - Normal.Normal,
-  
+
   stage4.BasalvsLumA = BasalLike.stage4- LuminalA.stage4,
   stage4.BasalvsLumB = BasalLike.stage4- LuminalB.stage4,
   stage4.BasalvsHER2 = BasalLike.stage4- HER2enriched.stage4,
-  stage4.BasalvsNormal = BasalLike.stage4 - Normal.Normal,
-  
+
   stage4.HER2vsLumA = HER2enriched.stage4- LuminalA.stage4,
   stage4.HER2vsLumB = HER2enriched.stage4- LuminalB.stage4,
   stage4.HER2vsBasal = HER2enriched.stage4- BasalLike.stage4,
-  stage4.HER2vsNormal = HER2enriched.stage4 - Normal.Normal,
-  
+
   levels = colnames(design)) 
 
 ##########
@@ -496,131 +461,131 @@ contr.matrix <- makeContrasts(
 contr.matrix <- makeContrasts(stage1.LobularvsNormal = Lobularcarcinoma.stage1 - Normal.Normal,
                               stage1.DuctalvsNormal = Ductalcarcinoma.stage1 - Normal.Normal,
                               stage1.DuctLobvsNormal = Ductalandlobularmixed.stage1 - Normal.Normal,
-                              stage1.DuctOthersvsNormal = Ductualmixedwithothers.stage1 - Normal.Normal,
+                              #stage1.DuctOthersvsNormal = Ductualmixedwithothers.stage1 - Normal.Normal,
                               stage1.MetaplastvsNormal = Metaplasticcarcinoma.stage1 - Normal.Normal,
                               stage1.MucinousvsNormal = Mucinousadenocarcinoma.stage1 - Normal.Normal,
                               
                               stage1.LobularvsDuctal = Lobularcarcinoma.stage1 - Ductalcarcinoma.stage1,
                               stage1.LobularvsDuctLob = Lobularcarcinoma.stage1 - Ductalandlobularmixed.stage1,
-                              stage1.LobularvsDuctOther = Lobularcarcinoma.stage1 - Ductualmixedwithothers.stage1,
+                              #stage1.LobularvsDuctOther = Lobularcarcinoma.stage1 - Ductualmixedwithothers.stage1,
                               stage1.LobularvsMetaplast = Lobularcarcinoma.stage1 - Metaplasticcarcinoma.stage1,
                               stage1.LobularvsMucinous = Lobularcarcinoma.stage1 - Mucinousadenocarcinoma.stage1,
                               
                               stage1.DuctalvsLobular = Ductalcarcinoma.stage1 - Lobularcarcinoma.stage1,
                               stage1.DuctalvsDuctLob = Ductalcarcinoma.stage1 - Ductalandlobularmixed.stage1,
-                              stage1.DuctalvsDuctOthers = Ductalcarcinoma.stage1 - Ductualmixedwithothers.stage1,
+                              #stage1.DuctalvsDuctOthers = Ductalcarcinoma.stage1 - Ductualmixedwithothers.stage1,
                               stage1.DuctalvsMetaplast = Ductalcarcinoma.stage1 - Metaplasticcarcinoma.stage1,
                               stage1.DuctalvsMucinous = Ductalcarcinoma.stage1 - Mucinousadenocarcinoma.stage1,
                               
                               stage1.DuctLobvsLobular = Ductalandlobularmixed.stage1 - Lobularcarcinoma.stage1,
                               stage1.DuctLobvsDuctal  = Ductalandlobularmixed.stage1 - Ductalcarcinoma.stage1,
-                              stage1.DuctLobvsDuctOther =Ductalandlobularmixed.stage1 - Ductualmixedwithothers.stage1,
+                              #stage1.DuctLobvsDuctOther =Ductalandlobularmixed.stage1 - Ductualmixedwithothers.stage1,
                               stage1.DuctLobvsMetaplast =Ductalandlobularmixed.stage1 - Metaplasticcarcinoma.stage1,
                               stage1.DuctLobvsMucinous  =Ductalandlobularmixed.stage1 - Mucinousadenocarcinoma.stage1,
                               
-                              stage1.DuctOthersvsLobular = Ductualmixedwithothers.stage1 - Lobularcarcinoma.stage1,
-                              stage1.DuctOthersvsDuctal = Ductualmixedwithothers.stage1 - Ductalcarcinoma.stage1,
-                              stage1.DuctOthersvsDuctLob = Ductualmixedwithothers.stage1 -   Ductalandlobularmixed.stage1,
-                              stage1.DuctOthersvsMetaplast = Ductualmixedwithothers.stage1 - Metaplasticcarcinoma.stage1,
-                              stage1.DuctOthersvsMucinous  = Ductualmixedwithothers.stage1 -  Mucinousadenocarcinoma.stage1,
+                              #stage1.DuctOthersvsLobular = Ductualmixedwithothers.stage1 - Lobularcarcinoma.stage1,
+                              #stage1.DuctOthersvsDuctal = Ductualmixedwithothers.stage1 - Ductalcarcinoma.stage1,
+                              #stage1.DuctOthersvsDuctLob = Ductualmixedwithothers.stage1 -   Ductalandlobularmixed.stage1,
+                              #stage1.DuctOthersvsMetaplast = Ductualmixedwithothers.stage1 - Metaplasticcarcinoma.stage1,
+                              #stage1.DuctOthersvsMucinous  = Ductualmixedwithothers.stage1 -  Mucinousadenocarcinoma.stage1,
                               
                               stage1.MetaplastvsLobular = Metaplasticcarcinoma.stage1 -  Lobularcarcinoma.stage1,
                               stage1.MetaplastvsDuctal = Metaplasticcarcinoma.stage1 - Ductalcarcinoma.stage1,
                               stage1.MetaplastvsDuctLob = Metaplasticcarcinoma.stage1 -  Ductalandlobularmixed.stage1,
-                              stage1.MetaplastvsDuctOther = Metaplasticcarcinoma.stage1 -  Ductualmixedwithothers.stage1,
+                              #stage1.MetaplastvsDuctOther = Metaplasticcarcinoma.stage1 -  Ductualmixedwithothers.stage1,
                               stage1.MetaplastvsMucinous = Metaplasticcarcinoma.stage1  -   Mucinousadenocarcinoma.stage1,
                               
                               stage1.MucinousvsLobular = Mucinousadenocarcinoma.stage1 -  Lobularcarcinoma.stage1,
                               stage1.MucinousvsDuctal = Mucinousadenocarcinoma.stage1 -Ductalcarcinoma.stage1,
                               stage1.MucinousvsDuctLob = Mucinousadenocarcinoma.stage1 -  Ductalandlobularmixed.stage1,
-                              stage1.MucinousvsDuctOther = Mucinousadenocarcinoma.stage1 - Ductualmixedwithothers.stage1,
+                              #stage1.MucinousvsDuctOther = Mucinousadenocarcinoma.stage1 - Ductualmixedwithothers.stage1,
                               stage1.MucinousvsMetaplast = Mucinousadenocarcinoma.stage1 - Metaplasticcarcinoma.stage1,
                               
                               stage2.LobularvsNormal = Lobularcarcinoma.stage2 - Normal.Normal,
                               stage2.DuctalvsNormal = Ductalcarcinoma.stage2 - Normal.Normal,
                               stage2.DuctLobvsNormal = Ductalandlobularmixed.stage2 - Normal.Normal,
-                              stage2.DuctOthersvsNormal = Ductualmixedwithothers.stage2 - Normal.Normal,
+                              #stage2.DuctOthersvsNormal = Ductualmixedwithothers.stage2 - Normal.Normal,
                               stage2.MetaplastvsNormal = Metaplasticcarcinoma.stage2 - Normal.Normal,
                               stage2.MucinousvsNormal = Mucinousadenocarcinoma.stage2 - Normal.Normal,
                               
                               stage2.LobularvsDuctal = Lobularcarcinoma.stage2 - Ductalcarcinoma.stage2,
                               stage2.LobularvsDuctLob = Lobularcarcinoma.stage2 - Ductalandlobularmixed.stage2,
-                              stage2.LobularvsDuctOther = Lobularcarcinoma.stage2 - Ductualmixedwithothers.stage2,
+                              #stage2.LobularvsDuctOther = Lobularcarcinoma.stage2 - Ductualmixedwithothers.stage2,
                               stage2.LobularvsMetaplast = Lobularcarcinoma.stage2 - Metaplasticcarcinoma.stage2,
                               stage2.LobularvsMucinous = Lobularcarcinoma.stage2 - Mucinousadenocarcinoma.stage2,
                               
                               stage2.DuctalvsLobular = Ductalcarcinoma.stage2 - Lobularcarcinoma.stage2,
                               stage2.DuctalvsDuctLob = Ductalcarcinoma.stage2 - Ductalandlobularmixed.stage2,
-                              stage2.DuctalvsDuctOthers = Ductalcarcinoma.stage2 - Ductualmixedwithothers.stage2,
+                              #stage2.DuctalvsDuctOthers = Ductalcarcinoma.stage2 - Ductualmixedwithothers.stage2,
                               stage2.DuctalvsMetaplast = Ductalcarcinoma.stage2 - Metaplasticcarcinoma.stage2,
                               stage2.DuctalvsMucinous = Ductalcarcinoma.stage2 - Mucinousadenocarcinoma.stage2,
                               
                               stage2.DuctLobvsLobular = Ductalandlobularmixed.stage2 - Lobularcarcinoma.stage2,
                               stage2.DuctLobvsDuctal  = Ductalandlobularmixed.stage2 - Ductalcarcinoma.stage2,
-                              stage2.DuctLobvsDuctOther =Ductalandlobularmixed.stage2 - Ductualmixedwithothers.stage2,
+                              #stage2.DuctLobvsDuctOther =Ductalandlobularmixed.stage2 - Ductualmixedwithothers.stage2,
                               stage2.DuctLobvsMetaplast =Ductalandlobularmixed.stage2 - Metaplasticcarcinoma.stage2,
                               stage2.DuctLobvsMucinous  =Ductalandlobularmixed.stage2 - Mucinousadenocarcinoma.stage2,
                               
-                              stage2.DuctOthersvsLobular = Ductualmixedwithothers.stage2 - Lobularcarcinoma.stage2,
-                              stage2.DuctOthersvsDuctal = Ductualmixedwithothers.stage2 - Ductalcarcinoma.stage2,
-                              stage2.DuctOthersvsDuctLob = Ductualmixedwithothers.stage2 -   Ductalandlobularmixed.stage2,
-                              stage2.DuctOthersvsMetaplast = Ductualmixedwithothers.stage2 - Metaplasticcarcinoma.stage2,
-                              stage2.DuctOthersvsMucinous  = Ductualmixedwithothers.stage2 -  Mucinousadenocarcinoma.stage2,
+                              #stage2.DuctOthersvsLobular = Ductualmixedwithothers.stage2 - Lobularcarcinoma.stage2,
+                              #stage2.DuctOthersvsDuctal = Ductualmixedwithothers.stage2 - Ductalcarcinoma.stage2,
+                              #stage2.DuctOthersvsDuctLob = Ductualmixedwithothers.stage2 -   Ductalandlobularmixed.stage2,
+                              #stage2.DuctOthersvsMetaplast = Ductualmixedwithothers.stage2 - Metaplasticcarcinoma.stage2,
+                              #stage2.DuctOthersvsMucinous  = Ductualmixedwithothers.stage2 -  Mucinousadenocarcinoma.stage2,
                               
                               stage2.MetaplastvsLobular = Metaplasticcarcinoma.stage2 -  Lobularcarcinoma.stage2,
                               stage2.MetaplastvsDuctal = Metaplasticcarcinoma.stage2 - Ductalcarcinoma.stage2,
                               stage2.MetaplastvsDuctLob = Metaplasticcarcinoma.stage2 -  Ductalandlobularmixed.stage2,
-                              stage2.MetaplastvsDuctOther = Metaplasticcarcinoma.stage2 -  Ductualmixedwithothers.stage2,
+                              #stage2.MetaplastvsDuctOther = Metaplasticcarcinoma.stage2 -  Ductualmixedwithothers.stage2,
                               stage2.MetaplastvsMucinous = Metaplasticcarcinoma.stage2  -   Mucinousadenocarcinoma.stage2,
                               
                               stage2.MucinousvsLobular = Mucinousadenocarcinoma.stage2 -  Lobularcarcinoma.stage2,
                               stage2.MucinousvsDuctal = Mucinousadenocarcinoma.stage2 -Ductalcarcinoma.stage2,
                               stage2.MucinousvsDuctLob = Mucinousadenocarcinoma.stage2 -  Ductalandlobularmixed.stage2,
-                              stage2.MucinousvsDuctOther = Mucinousadenocarcinoma.stage2 - Ductualmixedwithothers.stage2,
+                              #stage2.MucinousvsDuctOther = Mucinousadenocarcinoma.stage2 - Ductualmixedwithothers.stage2,
                               stage2.MucinousvsMetaplast = Mucinousadenocarcinoma.stage2 - Metaplasticcarcinoma.stage2,
                               
                               
                               stage3.LobularvsNormal = Lobularcarcinoma.stage3 - Normal.Normal,
                               stage3.DuctalvsNormal = Ductalcarcinoma.stage3 - Normal.Normal,
                               stage3.DuctLobvsNormal = Ductalandlobularmixed.stage3 - Normal.Normal,
-                              stage3.DuctOthersvsNormal = Ductualmixedwithothers.stage3 - Normal.Normal,
+                              #stage3.DuctOthersvsNormal = Ductualmixedwithothers.stage3 - Normal.Normal,
                               stage3.MetaplastvsNormal = Metaplasticcarcinoma.stage3 - Normal.Normal,
                               stage3.MucinousvsNormal = Mucinousadenocarcinoma.stage3 - Normal.Normal,
                               
                               stage3.LobularvsDuctal = Lobularcarcinoma.stage3 - Ductalcarcinoma.stage3,
                               stage3.LobularvsDuctLob = Lobularcarcinoma.stage3 - Ductalandlobularmixed.stage3,
-                              stage3.LobularvsDuctOther = Lobularcarcinoma.stage3 - Ductualmixedwithothers.stage3,
+                              #stage3.LobularvsDuctOther = Lobularcarcinoma.stage3 - Ductualmixedwithothers.stage3,
                               stage3.LobularvsMetaplast = Lobularcarcinoma.stage3 - Metaplasticcarcinoma.stage3,
                               stage3.LobularvsMucinous = Lobularcarcinoma.stage3 - Mucinousadenocarcinoma.stage3,
                               
                               stage3.DuctalvsLobular = Ductalcarcinoma.stage3 - Lobularcarcinoma.stage3,
                               stage3.DuctalvsDuctLob = Ductalcarcinoma.stage3 - Ductalandlobularmixed.stage3,
-                              stage3.DuctalvsDuctOthers = Ductalcarcinoma.stage3 - Ductualmixedwithothers.stage3,
+                              #stage3.DuctalvsDuctOthers = Ductalcarcinoma.stage3 - Ductualmixedwithothers.stage3,
                               stage3.DuctalvsMetaplast = Ductalcarcinoma.stage3 - Metaplasticcarcinoma.stage3,
                               stage3.DuctalvsMucinous = Ductalcarcinoma.stage3 - Mucinousadenocarcinoma.stage3,
                               
                               stage3.DuctLobvsLobular = Ductalandlobularmixed.stage3 - Lobularcarcinoma.stage3,
                               stage3.DuctLobvsDuctal  = Ductalandlobularmixed.stage3 - Ductalcarcinoma.stage3,
-                              stage3.DuctLobvsDuctOther =Ductalandlobularmixed.stage3 - Ductualmixedwithothers.stage3,
+                              #stage3.DuctLobvsDuctOther =Ductalandlobularmixed.stage3 - Ductualmixedwithothers.stage3,
                               stage3.DuctLobvsMetaplast =Ductalandlobularmixed.stage3 - Metaplasticcarcinoma.stage3,
                               stage3.DuctLobvsMucinous  =Ductalandlobularmixed.stage3 - Mucinousadenocarcinoma.stage3,
                               
-                              stage3.DuctOthersvsLobular = Ductualmixedwithothers.stage3 - Lobularcarcinoma.stage3,
-                              stage3.DuctOthersvsDuctal = Ductualmixedwithothers.stage3 - Ductalcarcinoma.stage3,
-                              stage3.DuctOthersvsDuctLob = Ductualmixedwithothers.stage3 -   Ductalandlobularmixed.stage3,
-                              stage3.DuctOthersvsMetaplast = Ductualmixedwithothers.stage3 - Metaplasticcarcinoma.stage3,
-                              stage3.DuctOthersvsMucinous  = Ductualmixedwithothers.stage3 -  Mucinousadenocarcinoma.stage3,
+                              #stage3.DuctOthersvsLobular = Ductualmixedwithothers.stage3 - Lobularcarcinoma.stage3,
+                              #stage3.DuctOthersvsDuctal = Ductualmixedwithothers.stage3 - Ductalcarcinoma.stage3,
+                              #stage3.DuctOthersvsDuctLob = Ductualmixedwithothers.stage3 -   Ductalandlobularmixed.stage3,
+                              #stage3.DuctOthersvsMetaplast = Ductualmixedwithothers.stage3 - Metaplasticcarcinoma.stage3,
+                              #stage3.DuctOthersvsMucinous  = Ductualmixedwithothers.stage3 -  Mucinousadenocarcinoma.stage3,
                               
                               stage3.MetaplastvsLobular = Metaplasticcarcinoma.stage3 -  Lobularcarcinoma.stage3,
                               stage3.MetaplastvsDuctal = Metaplasticcarcinoma.stage3 - Ductalcarcinoma.stage3,
                               stage3.MetaplastvsDuctLob = Metaplasticcarcinoma.stage3 -  Ductalandlobularmixed.stage3,
-                              stage3.MetaplastvsDuctOther = Metaplasticcarcinoma.stage3 -  Ductualmixedwithothers.stage3,
+                              #stage3.MetaplastvsDuctOther = Metaplasticcarcinoma.stage3 -  Ductualmixedwithothers.stage3,
                               stage3.MetaplastvsMucinous = Metaplasticcarcinoma.stage3  -   Mucinousadenocarcinoma.stage3,
                               
                               stage3.MucinousvsLobular = Mucinousadenocarcinoma.stage3 -  Lobularcarcinoma.stage3,
                               stage3.MucinousvsDuctal = Mucinousadenocarcinoma.stage3 -Ductalcarcinoma.stage3,
                               stage3.MucinousvsDuctLob = Mucinousadenocarcinoma.stage3 -  Ductalandlobularmixed.stage3,
-                              stage3.MucinousvsDuctOther = Mucinousadenocarcinoma.stage3 - Ductualmixedwithothers.stage3,
+                              #stage3.MucinousvsDuctOther = Mucinousadenocarcinoma.stage3 - Ductualmixedwithothers.stage3,
                               stage3.MucinousvsMetaplast = Mucinousadenocarcinoma.stage3 - Metaplasticcarcinoma.stage3,
                               
                               
@@ -630,9 +595,6 @@ contr.matrix <- makeContrasts(stage1.LobularvsNormal = Lobularcarcinoma.stage1 -
                               # stage 4 is only Ductal!
                               
                               
-                              Lobularcarcinoma.Stage1vsNorm =   Lobularcarcinoma.stage1 - Normal.Normal,  
-                              Lobularcarcinoma.Stage2vsNorm =   Lobularcarcinoma.stage2 - Normal.Normal,
-                              Lobularcarcinoma.Stage3vsNorm =   Lobularcarcinoma.stage3 - Normal.Normal,
                               Lobularcarcinoma.Stage1vsStage2 = Lobularcarcinoma.stage1 - Lobularcarcinoma.stage2,
                               Lobularcarcinoma.Stage1vsStage3 = Lobularcarcinoma.stage1 - Lobularcarcinoma.stage3,
                               Lobularcarcinoma.Stage2vsStage1 = Lobularcarcinoma.stage2 - Lobularcarcinoma.stage1,
@@ -640,11 +602,7 @@ contr.matrix <- makeContrasts(stage1.LobularvsNormal = Lobularcarcinoma.stage1 -
                               Lobularcarcinoma.Stage3vsStage2 = Lobularcarcinoma.stage3 - Lobularcarcinoma.stage2,
                               Lobularcarcinoma.Stage3vsStage1 = Lobularcarcinoma.stage3 - Lobularcarcinoma.stage1,
                               
-                              
-                              Ductalcarcinoma.Stage1vsNorm =   Ductalcarcinoma.stage1 - Normal.Normal,  
-                              Ductalcarcinoma.Stage2vsNorm =   Ductalcarcinoma.stage2 - Normal.Normal,
-                              Ductalcarcinoma.Stage3vsNorm =   Ductalcarcinoma.stage3 - Normal.Normal,
-                              Ductalcarcinoma.Stage4vsNorm =   Ductalcarcinoma.stage4 - Normal.Normal,
+        
                               Ductalcarcinoma.Stage1vsStage2 = Ductalcarcinoma.stage1 - Ductalcarcinoma.stage2,
                               Ductalcarcinoma.Stage1vsStage3 = Ductalcarcinoma.stage1 - Ductalcarcinoma.stage3,
                               Ductalcarcinoma.Stage1vsStage4 = Ductalcarcinoma.stage1 - Ductalcarcinoma.stage4,
@@ -656,9 +614,7 @@ contr.matrix <- makeContrasts(stage1.LobularvsNormal = Lobularcarcinoma.stage1 -
                               Ductalcarcinoma.Stage3vsStage1 = Ductalcarcinoma.stage3 - Ductalcarcinoma.stage1,
                               
                               
-                              Ductalandlobularmixed.Stage1vsNorm =   Ductalandlobularmixed.stage1 - Normal.Normal,  
-                              Ductalandlobularmixed.Stage2vsNorm =   Ductalandlobularmixed.stage2 - Normal.Normal,
-                              Ductalandlobularmixed.Stage3vsNorm =   Ductalandlobularmixed.stage3 - Normal.Normal,
+               
                               Ductalandlobularmixed.Stage1vsStage2 = Ductalandlobularmixed.stage1 - Ductalandlobularmixed.stage2,
                               Ductalandlobularmixed.Stage1vsStage3 = Ductalandlobularmixed.stage1 - Ductalandlobularmixed.stage3,
                               Ductalandlobularmixed.Stage2vsStage1 = Ductalandlobularmixed.stage2 - Ductalandlobularmixed.stage1,
@@ -667,21 +623,17 @@ contr.matrix <- makeContrasts(stage1.LobularvsNormal = Lobularcarcinoma.stage1 -
                               Ductalandlobularmixed.Stage3vsStage1 = Ductalandlobularmixed.stage3 - Ductalandlobularmixed.stage1,
                               
                               
-                              Ductualmixedwithothers.Stage1vsNorm =   Ductualmixedwithothers.stage1 - Normal.Normal,  
-                              Ductualmixedwithothers.Stage2vsNorm =   Ductualmixedwithothers.stage2 - Normal.Normal,
-                              Ductualmixedwithothers.Stage3vsNorm =   Ductualmixedwithothers.stage3 - Normal.Normal,
-                              Ductualmixedwithothers.Stage1vsStage2 = Ductualmixedwithothers.stage1 - Ductualmixedwithothers.stage2,
-                              Ductualmixedwithothers.Stage1vsStage3 = Ductualmixedwithothers.stage1 - Ductualmixedwithothers.stage3,
-                              Ductualmixedwithothers.Stage2vsStage1 = Ductualmixedwithothers.stage2 - Ductualmixedwithothers.stage1,
-                              Ductualmixedwithothers.Stage2vsStage3 = Ductualmixedwithothers.stage2 - Ductualmixedwithothers.stage3,
-                              Ductualmixedwithothers.Stage3vsStage2 = Ductualmixedwithothers.stage3 - Ductualmixedwithothers.stage2,
-                              Ductualmixedwithothers.Stage3vsStage1 = Ductualmixedwithothers.stage3 - Ductualmixedwithothers.stage1,
+                              #Ductualmixedwithothers.Stage1vsNorm =   Ductualmixedwithothers.stage1 - Normal.Normal,  
+                              #Ductualmixedwithothers.Stage2vsNorm =   Ductualmixedwithothers.stage2 - Normal.Normal,
+                              #Ductualmixedwithothers.Stage3vsNorm =   Ductualmixedwithothers.stage3 - Normal.Normal,
+                              #Ductualmixedwithothers.Stage1vsStage2 = Ductualmixedwithothers.stage1 - Ductualmixedwithothers.stage2,
+                              #Ductualmixedwithothers.Stage1vsStage3 = Ductualmixedwithothers.stage1 - Ductualmixedwithothers.stage3,
+                              #Ductualmixedwithothers.Stage2vsStage1 = Ductualmixedwithothers.stage2 - Ductualmixedwithothers.stage1,
+                              #Ductualmixedwithothers.Stage2vsStage3 = Ductualmixedwithothers.stage2 - Ductualmixedwithothers.stage3,
+                              #Ductualmixedwithothers.Stage3vsStage2 = Ductualmixedwithothers.stage3 - Ductualmixedwithothers.stage2,
+                              #Ductualmixedwithothers.Stage3vsStage1 = Ductualmixedwithothers.stage3 - Ductualmixedwithothers.stage1,
                               
                               
-                              
-                              Metaplasticcarcinoma.Stage1vsNorm =   Metaplasticcarcinoma.stage1 - Normal.Normal,  
-                              Metaplasticcarcinoma.Stage2vsNorm =   Metaplasticcarcinoma.stage2 - Normal.Normal,
-                              Metaplasticcarcinoma.Stage3vsNorm =   Metaplasticcarcinoma.stage3 - Normal.Normal,
                               Metaplasticcarcinoma.Stage1vsStage2 = Metaplasticcarcinoma.stage1 - Metaplasticcarcinoma.stage2,
                               Metaplasticcarcinoma.Stage1vsStage3 = Metaplasticcarcinoma.stage1 - Metaplasticcarcinoma.stage3,
                               Metaplasticcarcinoma.Stage2vsStage1 = Metaplasticcarcinoma.stage2 - Metaplasticcarcinoma.stage1,
@@ -689,10 +641,7 @@ contr.matrix <- makeContrasts(stage1.LobularvsNormal = Lobularcarcinoma.stage1 -
                               Metaplasticcarcinoma.Stage3vsStage2 = Metaplasticcarcinoma.stage3 - Metaplasticcarcinoma.stage2,
                               Metaplasticcarcinoma.Stage3vsStage1 = Metaplasticcarcinoma.stage3 - Metaplasticcarcinoma.stage1,
                               
-                              
-                              Mucinousadenocarcinoma.Stage1vsNorm =   Mucinousadenocarcinoma.stage1 - Normal.Normal,  
-                              Mucinousadenocarcinoma.Stage2vsNorm =   Mucinousadenocarcinoma.stage2 - Normal.Normal,
-                              Mucinousadenocarcinoma.Stage3vsNorm =   Mucinousadenocarcinoma.stage3 - Normal.Normal,
+                             
                               Mucinousadenocarcinoma.Stage1vsStage2 = Mucinousadenocarcinoma.stage1 - Mucinousadenocarcinoma.stage2,
                               Mucinousadenocarcinoma.Stage1vsStage3 = Mucinousadenocarcinoma.stage1 - Mucinousadenocarcinoma.stage3,
                               Mucinousadenocarcinoma.Stage2vsStage1 = Mucinousadenocarcinoma.stage2 - Mucinousadenocarcinoma.stage1,
@@ -711,218 +660,202 @@ contr.matrix <- makeContrasts( Lobularcarcinoma.LumAvsLumB = LuminalA.Lobularcar
                                Lobularcarcinoma.LumAvsBasal = LuminalA.Lobularcarcinoma - BasalLike.Lobularcarcinoma,
                                Lobularcarcinoma.LumAvsHER2 = LuminalA.Lobularcarcinoma - HER2enriched.Lobularcarcinoma,
                                Lobularcarcinoma.LumAvsNormLike = LuminalA.Lobularcarcinoma - NormalLike.Lobularcarcinoma,
-                               Lobularcarcinoma.LumAvsNormal = LuminalA.Lobularcarcinoma - Normal.Normal,
-                               
+
                                Lobularcarcinoma.LumBvsLumA = LuminalB.Lobularcarcinoma - LuminalA.Lobularcarcinoma,
                                Lobularcarcinoma.LumBvsBasal = LuminalB.Lobularcarcinoma - BasalLike.Lobularcarcinoma,
                                Lobularcarcinoma.LumBvsHER2 = LuminalB.Lobularcarcinoma - HER2enriched.Lobularcarcinoma,
                                Lobularcarcinoma.LumBvsNormLike = LuminalB.Lobularcarcinoma - NormalLike.Lobularcarcinoma,
-                               Lobularcarcinoma.LumBvsNormal = LuminalB.Lobularcarcinoma - Normal.Normal,
-                               
+
                                Lobularcarcinoma.BasalvsLumA = BasalLike.Lobularcarcinoma- LuminalA.Lobularcarcinoma,
                                Lobularcarcinoma.BasalvsLumB = BasalLike.Lobularcarcinoma- LuminalB.Lobularcarcinoma,
                                Lobularcarcinoma.BasalvsHER2 = BasalLike.Lobularcarcinoma- HER2enriched.Lobularcarcinoma,
                                Lobularcarcinoma.BasalvsNormLike = BasalLike.Lobularcarcinoma - NormalLike.Lobularcarcinoma,
-                               Lobularcarcinoma.BasalvsNormal = BasalLike.Lobularcarcinoma - Normal.Normal,
-                               
+
                                Lobularcarcinoma.HER2vsLumA = HER2enriched.Lobularcarcinoma- LuminalA.Lobularcarcinoma,
                                Lobularcarcinoma.HER2vsLumB = HER2enriched.Lobularcarcinoma- LuminalB.Lobularcarcinoma,
                                Lobularcarcinoma.HER2vsBasal = HER2enriched.Lobularcarcinoma- BasalLike.Lobularcarcinoma,
                                Lobularcarcinoma.HER2vsNormLike = HER2enriched.Lobularcarcinoma - NormalLike.Lobularcarcinoma,
-                               Lobularcarcinoma.HER2vsNormal = HER2enriched.Lobularcarcinoma - Normal.Normal,
-                               
+
                                Lobularcarcinoma.NormalLikevsLumA = NormalLike.Lobularcarcinoma- LuminalA.Lobularcarcinoma,
                                Lobularcarcinoma.NormalLikevsLumB = NormalLike.Lobularcarcinoma- LuminalB.Lobularcarcinoma,
                                Lobularcarcinoma.NormalLikevsBasal = NormalLike.Lobularcarcinoma- BasalLike.Lobularcarcinoma,
                                Lobularcarcinoma.NormalLikevsHER2 = NormalLike.Lobularcarcinoma- HER2enriched.Lobularcarcinoma,
-                               Lobularcarcinoma.NormalLikevsNormal =NormalLike.Lobularcarcinoma - Normal.Normal,
-                               
+
                                
                                Ductalcarcinoma.LumAvsLumB = LuminalA.Ductalcarcinoma - LuminalB.Ductalcarcinoma,     #unique comparisons 15
                                Ductalcarcinoma.LumAvsBasal = LuminalA.Ductalcarcinoma - BasalLike.Ductalcarcinoma,
                                Ductalcarcinoma.LumAvsHER2 = LuminalA.Ductalcarcinoma - HER2enriched.Ductalcarcinoma,
                                Ductalcarcinoma.LumAvsNormLike = LuminalA.Ductalcarcinoma - NormalLike.Ductalcarcinoma,
-                               Ductalcarcinoma.LumAvsNormal = LuminalA.Ductalcarcinoma - Normal.Normal,
-                               
+
                                Ductalcarcinoma.LumBvsLumA = LuminalB.Ductalcarcinoma - LuminalA.Ductalcarcinoma,
                                Ductalcarcinoma.LumBvsBasal = LuminalB.Ductalcarcinoma - BasalLike.Ductalcarcinoma,
                                Ductalcarcinoma.LumBvsHER2 = LuminalB.Ductalcarcinoma - HER2enriched.Ductalcarcinoma,
                                Ductalcarcinoma.LumBvsNormLike = LuminalB.Ductalcarcinoma - NormalLike.Ductalcarcinoma,
-                               Ductalcarcinoma.LumBvsNormal = LuminalB.Ductalcarcinoma - Normal.Normal,
-                               
+
                                Ductalcarcinoma.BasalvsLumA = BasalLike.Ductalcarcinoma- LuminalA.Ductalcarcinoma,
                                Ductalcarcinoma.BasalvsLumB = BasalLike.Ductalcarcinoma- LuminalB.Ductalcarcinoma,
                                Ductalcarcinoma.BasalvsHER2 = BasalLike.Ductalcarcinoma- HER2enriched.Ductalcarcinoma,
                                Ductalcarcinoma.BasalvsNormLike = BasalLike.Ductalcarcinoma - NormalLike.Ductalcarcinoma,
-                               Ductalcarcinoma.BasalvsNormal = BasalLike.Ductalcarcinoma - Normal.Normal,
-                               
+
                                Ductalcarcinoma.HER2vsLumA = HER2enriched.Ductalcarcinoma- LuminalA.Ductalcarcinoma,
                                Ductalcarcinoma.HER2vsLumB = HER2enriched.Ductalcarcinoma- LuminalB.Ductalcarcinoma,
                                Ductalcarcinoma.HER2vsBasal = HER2enriched.Ductalcarcinoma- BasalLike.Ductalcarcinoma,
                                Ductalcarcinoma.HER2vsNormLike = HER2enriched.Ductalcarcinoma - NormalLike.Ductalcarcinoma,
-                               Ductalcarcinoma.HER2vsNormal = HER2enriched.Ductalcarcinoma - Normal.Normal,
-                               
+
                                Ductalcarcinoma.NormalLikevsLumA = NormalLike.Ductalcarcinoma- LuminalA.Ductalcarcinoma,
                                Ductalcarcinoma.NormalLikevsLumB = NormalLike.Ductalcarcinoma- LuminalB.Ductalcarcinoma,
                                Ductalcarcinoma.NormalLikevsBasal = NormalLike.Ductalcarcinoma- BasalLike.Ductalcarcinoma,
                                Ductalcarcinoma.NormalLikevsHER2 = NormalLike.Ductalcarcinoma- HER2enriched.Ductalcarcinoma,
-                               Ductalcarcinoma.NormalLikevsNormal =NormalLike.Ductalcarcinoma - Normal.Normal,
-                               
+
                                Ductalandlobularmixed.LumAvsLumB = LuminalA.Ductalandlobularmixed - LuminalB.Ductalandlobularmixed,     #unique comparisons 15
                                Ductalandlobularmixed.LumAvsBasal = LuminalA.Ductalandlobularmixed - BasalLike.Ductalandlobularmixed,
-                               Ductalandlobularmixed.LumAvsNormal = LuminalA.Ductalandlobularmixed - Normal.Normal,
-                               
+
                                Ductalandlobularmixed.LumBvsLumA = LuminalB.Ductalandlobularmixed - LuminalA.Ductalandlobularmixed,
                                Ductalandlobularmixed.LumBvsBasal = LuminalB.Ductalandlobularmixed - BasalLike.Ductalandlobularmixed,
-                               Ductalandlobularmixed.LumBvsNormal = LuminalB.Ductalandlobularmixed - Normal.Normal,
-                               
+
                                Ductalandlobularmixed.BasalvsLumA = BasalLike.Ductalandlobularmixed- LuminalA.Ductalandlobularmixed,
                                Ductalandlobularmixed.BasalvsLumB = BasalLike.Ductalandlobularmixed- LuminalB.Ductalandlobularmixed,
-                               Ductalandlobularmixed.BasalvsNormal = BasalLike.Ductalandlobularmixed - Normal.Normal,
+
                                
-                               
-                               Ductualmixedwithothers.LumAvsLumB = LuminalA.Ductualmixedwithothers - LuminalB.Ductualmixedwithothers,     #unique comparisons 15
-                               Ductualmixedwithothers.LumAvsBasal = LuminalA.Ductualmixedwithothers - BasalLike.Ductualmixedwithothers,
-                               Ductualmixedwithothers.LumAvsHER2 = LuminalA.Ductualmixedwithothers - HER2enriched.Ductualmixedwithothers,
-                               Ductualmixedwithothers.LumAvsNormal = LuminalA.Ductualmixedwithothers - Normal.Normal,
-                               
-                               Ductualmixedwithothers.LumBvsLumA = LuminalB.Ductualmixedwithothers - LuminalA.Ductualmixedwithothers,
-                               Ductualmixedwithothers.LumBvsBasal = LuminalB.Ductualmixedwithothers - BasalLike.Ductualmixedwithothers,
-                               Ductualmixedwithothers.LumBvsHER2 = LuminalB.Ductualmixedwithothers - HER2enriched.Ductualmixedwithothers,
-                               Ductualmixedwithothers.LumBvsNormal = LuminalB.Ductualmixedwithothers - Normal.Normal,
-                               
-                               Ductualmixedwithothers.BasalvsLumA = BasalLike.Ductualmixedwithothers- LuminalA.Ductualmixedwithothers,
-                               Ductualmixedwithothers.BasalvsLumB = BasalLike.Ductualmixedwithothers- LuminalB.Ductualmixedwithothers,
-                               Ductualmixedwithothers.BasalvsHER2 = BasalLike.Ductualmixedwithothers- HER2enriched.Ductualmixedwithothers,
-                               Ductualmixedwithothers.BasalvsNormal = BasalLike.Ductualmixedwithothers - Normal.Normal,
-                               
-                               Ductualmixedwithothers.HER2vsLumA = HER2enriched.Ductualmixedwithothers- LuminalA.Ductualmixedwithothers,
-                               Ductualmixedwithothers.HER2vsLumB = HER2enriched.Ductualmixedwithothers- LuminalB.Ductualmixedwithothers,
-                               Ductualmixedwithothers.HER2vsBasal = HER2enriched.Ductualmixedwithothers- BasalLike.Ductualmixedwithothers,
-                               Ductualmixedwithothers.HER2vsNormal = HER2enriched.Ductualmixedwithothers - Normal.Normal,
-                               
+                              #Ductualmixedwithothers.LumAvsLumB = LuminalA.Ductualmixedwithothers - LuminalB.Ductualmixedwithothers,     #unique comparisons 15
+                              #Ductualmixedwithothers.LumAvsBasal = LuminalA.Ductualmixedwithothers - BasalLike.Ductualmixedwithothers,
+                              #Ductualmixedwithothers.LumAvsHER2 = LuminalA.Ductualmixedwithothers - HER2enriched.Ductualmixedwithothers,
+                              #Ductualmixedwithothers.LumAvsNormal = LuminalA.Ductualmixedwithothers - Normal.Normal,
+                              #
+                              #Ductualmixedwithothers.LumBvsLumA = LuminalB.Ductualmixedwithothers - LuminalA.Ductualmixedwithothers,
+                              #Ductualmixedwithothers.LumBvsBasal = LuminalB.Ductualmixedwithothers - BasalLike.Ductualmixedwithothers,
+                              #Ductualmixedwithothers.LumBvsHER2 = LuminalB.Ductualmixedwithothers - HER2enriched.Ductualmixedwithothers,
+                              #Ductualmixedwithothers.LumBvsNormal = LuminalB.Ductualmixedwithothers - Normal.Normal,
+                              #
+                              #Ductualmixedwithothers.BasalvsLumA = BasalLike.Ductualmixedwithothers- LuminalA.Ductualmixedwithothers,
+                              #Ductualmixedwithothers.BasalvsLumB = BasalLike.Ductualmixedwithothers- LuminalB.Ductualmixedwithothers,
+                              #Ductualmixedwithothers.BasalvsHER2 = BasalLike.Ductualmixedwithothers- HER2enriched.Ductualmixedwithothers,
+                              #Ductualmixedwithothers.BasalvsNormal = BasalLike.Ductualmixedwithothers - Normal.Normal,
+                              #
+                              #Ductualmixedwithothers.HER2vsLumA = HER2enriched.Ductualmixedwithothers- LuminalA.Ductualmixedwithothers,
+                              #Ductualmixedwithothers.HER2vsLumB = HER2enriched.Ductualmixedwithothers- LuminalB.Ductualmixedwithothers,
+                              #Ductualmixedwithothers.HER2vsBasal = HER2enriched.Ductualmixedwithothers- BasalLike.Ductualmixedwithothers,
+                              #Ductualmixedwithothers.HER2vsNormal = HER2enriched.Ductualmixedwithothers - Normal.Normal,
+                              #
                                
                                # metaplastic exists only in basal!
-                               Metaplasticcarcinoma.BasalvsNormal = BasalLike.Metaplasticcarcinoma - Normal.Normal,
-                               
+
                                # mucinous only in LumA and LumB
                                
                                Mucinousadenocarcinoma.LumAvsLumB = LuminalA.Mucinousadenocarcinoma - LuminalB.Mucinousadenocarcinoma,     #unique comparisons 15
-                               Mucinousadenocarcinoma.LumAvsNormal = LuminalA.Mucinousadenocarcinoma - Normal.Normal,
-                               
+
                                Mucinousadenocarcinoma.LumBvsLumA = LuminalB.Mucinousadenocarcinoma - LuminalA.Mucinousadenocarcinoma,
-                               Mucinousadenocarcinoma.LumBvsNormal = LuminalB.Mucinousadenocarcinoma - Normal.Normal,
-                               
+
                                LuminalA.LobularvsNormal = LuminalA.Lobularcarcinoma - Normal.Normal,
                                LuminalA.DuctalvsNormal = LuminalA.Ductalcarcinoma - Normal.Normal,
                                LuminalA.DuctLobvsNormal = LuminalA.Ductalandlobularmixed - Normal.Normal,
-                               LuminalA.DuctOthersvsNormal = LuminalA.Ductualmixedwithothers - Normal.Normal,
+                               #LuminalA.DuctOthersvsNormal = LuminalA.Ductualmixedwithothers - Normal.Normal,
                                LuminalA.MucinousvsNormal = LuminalA.Mucinousadenocarcinoma - Normal.Normal,
                                
                                LuminalA.LobularvsDuctal = LuminalA.Lobularcarcinoma - LuminalA.Ductalcarcinoma,
                                LuminalA.LobularvsDuctLob = LuminalA.Lobularcarcinoma - LuminalA.Ductalandlobularmixed,
-                               LuminalA.LobularvsDuctOther = LuminalA.Lobularcarcinoma - LuminalA.Ductualmixedwithothers,
+                               #LuminalA.LobularvsDuctOther = LuminalA.Lobularcarcinoma - LuminalA.Ductualmixedwithothers,
                                LuminalA.LobularvsMucinous = LuminalA.Lobularcarcinoma - LuminalA.Mucinousadenocarcinoma,
                                
                                LuminalA.DuctalvsLobular = LuminalA.Ductalcarcinoma - LuminalA.Lobularcarcinoma,
                                LuminalA.DuctalvsDuctLob = LuminalA.Ductalcarcinoma - LuminalA.Ductalandlobularmixed,
-                               LuminalA.DuctalvsDuctOthers = LuminalA.Ductalcarcinoma - LuminalA.Ductualmixedwithothers,
+                               #LuminalA.DuctalvsDuctOthers = LuminalA.Ductalcarcinoma - LuminalA.Ductualmixedwithothers,
                                LuminalA.DuctalvsMucinous = LuminalA.Ductalcarcinoma - LuminalA.Mucinousadenocarcinoma,
                                
                                LuminalA.DuctLobvsLobular = LuminalA.Ductalandlobularmixed - LuminalA.Lobularcarcinoma,
                                LuminalA.DuctLobvsDuctal  = LuminalA.Ductalandlobularmixed - LuminalA.Ductalcarcinoma,
-                               LuminalA.DuctLobvsDuctOther =LuminalA.Ductalandlobularmixed - LuminalA.Ductualmixedwithothers,
+                               #LuminalA.DuctLobvsDuctOther =LuminalA.Ductalandlobularmixed - LuminalA.Ductualmixedwithothers,
                                LuminalA.DuctLobvsMucinous  =LuminalA.Ductalandlobularmixed - LuminalA.Mucinousadenocarcinoma,
                                
-                               LuminalA.DuctOthersvsLobular = LuminalA.Ductualmixedwithothers - LuminalA.Lobularcarcinoma,
-                               LuminalA.DuctOthersvsDuctal = LuminalA.Ductualmixedwithothers - LuminalA.Ductalcarcinoma,
-                               LuminalA.DuctOthersvsDuctLob = LuminalA.Ductualmixedwithothers -  - LuminalA.Ductalandlobularmixed,
-                               LuminalA.DuctOthersvsMucinous  = LuminalA.Ductualmixedwithothers -  LuminalA.Mucinousadenocarcinoma,
+                               #LuminalA.DuctOthersvsLobular = LuminalA.Ductualmixedwithothers - LuminalA.Lobularcarcinoma,
+                               #LuminalA.DuctOthersvsDuctal = LuminalA.Ductualmixedwithothers - LuminalA.Ductalcarcinoma,
+                               #LuminalA.DuctOthersvsDuctLob = LuminalA.Ductualmixedwithothers -  - LuminalA.Ductalandlobularmixed,
+                               #LuminalA.DuctOthersvsMucinous  = LuminalA.Ductualmixedwithothers -  LuminalA.Mucinousadenocarcinoma,
                                
                                
                                LuminalA.MucinousvsLobular = LuminalA.Mucinousadenocarcinoma -  LuminalA.Lobularcarcinoma,
                                LuminalA.MucinousvsDuctal = LuminalA.Mucinousadenocarcinoma -LuminalA.Ductalcarcinoma,
                                LuminalA.MucinousvsDuctLob = LuminalA.Mucinousadenocarcinoma -  LuminalA.Ductalandlobularmixed,
-                               LuminalA.MucinousvsDuctOther = LuminalA.Mucinousadenocarcinoma - LuminalA.Ductualmixedwithothers,
+                               #LuminalA.MucinousvsDuctOther = LuminalA.Mucinousadenocarcinoma - LuminalA.Ductualmixedwithothers,
                                
                                
                                LuminalB.LobularvsNormal = LuminalB.Lobularcarcinoma - Normal.Normal,
                                LuminalB.DuctalvsNormal = LuminalB.Ductalcarcinoma - Normal.Normal,
                                LuminalB.DuctLobvsNormal = LuminalB.Ductalandlobularmixed - Normal.Normal,
-                               LuminalB.DuctOthersvsNormal = LuminalB.Ductualmixedwithothers - Normal.Normal,
+                               #LuminalB.DuctOthersvsNormal = LuminalB.Ductualmixedwithothers - Normal.Normal,
                                LuminalB.MucinousvsNormal = LuminalB.Mucinousadenocarcinoma - Normal.Normal,
                                
                                LuminalB.LobularvsDuctal = LuminalB.Lobularcarcinoma - LuminalB.Ductalcarcinoma,
                                LuminalB.LobularvsDuctLob = LuminalB.Lobularcarcinoma - LuminalB.Ductalandlobularmixed,
-                               LuminalB.LobularvsDuctOther = LuminalB.Lobularcarcinoma - LuminalB.Ductualmixedwithothers,
+                               #LuminalB.LobularvsDuctOther = LuminalB.Lobularcarcinoma - LuminalB.Ductualmixedwithothers,
                                LuminalB.LobularvsMucinous = LuminalB.Lobularcarcinoma - LuminalB.Mucinousadenocarcinoma,
                                
                                LuminalB.DuctalvsLobular = LuminalB.Ductalcarcinoma - LuminalB.Lobularcarcinoma,
                                LuminalB.DuctalvsDuctLob = LuminalB.Ductalcarcinoma - LuminalB.Ductalandlobularmixed,
-                               LuminalB.DuctalvsDuctOthers = LuminalB.Ductalcarcinoma - LuminalB.Ductualmixedwithothers,
+                               #LuminalB.DuctalvsDuctOthers = LuminalB.Ductalcarcinoma - LuminalB.Ductualmixedwithothers,
                                LuminalB.DuctalvsMucinous = LuminalB.Ductalcarcinoma - LuminalB.Mucinousadenocarcinoma,
                                
                                LuminalB.DuctLobvsLobular = LuminalB.Ductalandlobularmixed - LuminalB.Lobularcarcinoma,
                                LuminalB.DuctLobvsDuctal  = LuminalB.Ductalandlobularmixed - LuminalB.Ductalcarcinoma,
-                               LuminalB.DuctLobvsDuctOther =LuminalB.Ductalandlobularmixed - LuminalB.Ductualmixedwithothers,
+                               #LuminalB.DuctLobvsDuctOther =LuminalB.Ductalandlobularmixed - LuminalB.Ductualmixedwithothers,
                                LuminalB.DuctLobvsMucinous  =LuminalB.Ductalandlobularmixed - LuminalB.Mucinousadenocarcinoma,
                                
-                               LuminalB.DuctOthersvsLobular = LuminalB.Ductualmixedwithothers - LuminalB.Lobularcarcinoma,
-                               LuminalB.DuctOthersvsDuctal = LuminalB.Ductualmixedwithothers - LuminalB.Ductalcarcinoma,
-                               LuminalB.DuctOthersvsDuctLob = LuminalB.Ductualmixedwithothers -  - LuminalB.Ductalandlobularmixed,
-                               LuminalB.DuctOthersvsMucinous  = LuminalB.Ductualmixedwithothers -  LuminalB.Mucinousadenocarcinoma,
+                               #LuminalB.DuctOthersvsLobular = LuminalB.Ductualmixedwithothers - LuminalB.Lobularcarcinoma,
+                               #LuminalB.DuctOthersvsDuctal = LuminalB.Ductualmixedwithothers - LuminalB.Ductalcarcinoma,
+                               #LuminalB.DuctOthersvsDuctLob = LuminalB.Ductualmixedwithothers -  - LuminalB.Ductalandlobularmixed,
+                               #LuminalB.DuctOthersvsMucinous  = LuminalB.Ductualmixedwithothers -  LuminalB.Mucinousadenocarcinoma,
                                
                                
                                LuminalB.MucinousvsLobular = LuminalB.Mucinousadenocarcinoma -  LuminalB.Lobularcarcinoma,
                                LuminalB.MucinousvsDuctal = LuminalB.Mucinousadenocarcinoma -LuminalB.Ductalcarcinoma,
                                LuminalB.MucinousvsDuctLob = LuminalB.Mucinousadenocarcinoma -  LuminalB.Ductalandlobularmixed,
-                               LuminalB.MucinousvsDuctOther = LuminalB.Mucinousadenocarcinoma - LuminalB.Ductualmixedwithothers,
+                               #LuminalB.MucinousvsDuctOther = LuminalB.Mucinousadenocarcinoma - LuminalB.Ductualmixedwithothers,
                                
                                
                                BasalLike.LobularvsNormal = BasalLike.Lobularcarcinoma - Normal.Normal,
                                BasalLike.DuctalvsNormal = BasalLike.Ductalcarcinoma - Normal.Normal,
                                BasalLike.DuctLobvsNormal = BasalLike.Ductalandlobularmixed - Normal.Normal,
-                               BasalLike.DuctOthersvsNormal = BasalLike.Ductualmixedwithothers - Normal.Normal,
+                               #BasalLike.DuctOthersvsNormal = BasalLike.Ductualmixedwithothers - Normal.Normal,
                                BasalLike.MetaplastvsNormal = BasalLike.Metaplasticcarcinoma - Normal.Normal,
                                
                                BasalLike.LobularvsDuctal = BasalLike.Lobularcarcinoma - BasalLike.Ductalcarcinoma,
                                BasalLike.LobularvsDuctLob = BasalLike.Lobularcarcinoma - BasalLike.Ductalandlobularmixed,
-                               BasalLike.LobularvsDuctOther = BasalLike.Lobularcarcinoma - BasalLike.Ductualmixedwithothers,
+                               #BasalLike.LobularvsDuctOther = BasalLike.Lobularcarcinoma - BasalLike.Ductualmixedwithothers,
                                BasalLike.LobularvsMetaplast = BasalLike.Lobularcarcinoma - BasalLike.Metaplasticcarcinoma,
                                
                                BasalLike.DuctalvsLobular = BasalLike.Ductalcarcinoma - BasalLike.Lobularcarcinoma,
                                BasalLike.DuctalvsDuctLob = BasalLike.Ductalcarcinoma - BasalLike.Ductalandlobularmixed,
-                               BasalLike.DuctalvsDuctOthers = BasalLike.Ductalcarcinoma - BasalLike.Ductualmixedwithothers,
+                               #BasalLike.DuctalvsDuctOthers = BasalLike.Ductalcarcinoma - BasalLike.Ductualmixedwithothers,
                                BasalLike.DuctalvsMetaplast = BasalLike.Ductalcarcinoma - BasalLike.Metaplasticcarcinoma,
                                
                                BasalLike.DuctLobvsLobular = BasalLike.Ductalandlobularmixed - BasalLike.Lobularcarcinoma,
                                BasalLike.DuctLobvsDuctal  = BasalLike.Ductalandlobularmixed - BasalLike.Ductalcarcinoma,
-                               BasalLike.DuctLobvsDuctOther =BasalLike.Ductalandlobularmixed - BasalLike.Ductualmixedwithothers,
+                               #BasalLike.DuctLobvsDuctOther =BasalLike.Ductalandlobularmixed - BasalLike.Ductualmixedwithothers,
                                BasalLike.DuctLobvsMetaplast =BasalLike.Ductalandlobularmixed - BasalLike.Metaplasticcarcinoma,
                                
-                               BasalLike.DuctOthersvsLobular = BasalLike.Ductualmixedwithothers - BasalLike.Lobularcarcinoma,
-                               BasalLike.DuctOthersvsDuctal = BasalLike.Ductualmixedwithothers - BasalLike.Ductalcarcinoma,
-                               BasalLike.DuctOthersvsDuctLob = BasalLike.Ductualmixedwithothers -   BasalLike.Ductalandlobularmixed,
-                               BasalLike.DuctOthersvsMetaplast = BasalLike.Ductualmixedwithothers - BasalLike.Metaplasticcarcinoma,
+                               #BasalLike.DuctOthersvsLobular = BasalLike.Ductualmixedwithothers - BasalLike.Lobularcarcinoma,
+                               #BasalLike.DuctOthersvsDuctal = BasalLike.Ductualmixedwithothers - BasalLike.Ductalcarcinoma,
+                               #BasalLike.DuctOthersvsDuctLob = BasalLike.Ductualmixedwithothers -   BasalLike.Ductalandlobularmixed,
+                               #BasalLike.DuctOthersvsMetaplast = BasalLike.Ductualmixedwithothers - BasalLike.Metaplasticcarcinoma,
                                
                                BasalLike.MetaplastvsLobular = BasalLike.Metaplasticcarcinoma -  BasalLike.Lobularcarcinoma,
                                BasalLike.MetaplastvsDuctal = BasalLike.Metaplasticcarcinoma - BasalLike.Ductalcarcinoma,
                                BasalLike.MetaplastvsDuctLob = BasalLike.Metaplasticcarcinoma -  BasalLike.Ductalandlobularmixed,
-                               BasalLike.MetaplastvsDuctOther = BasalLike.Metaplasticcarcinoma -  BasalLike.Ductualmixedwithothers,
+                               #BasalLike.MetaplastvsDuctOther = BasalLike.Metaplasticcarcinoma -  BasalLike.Ductualmixedwithothers,
                                
                                
                                HER2enriched.LobularvsNormal = HER2enriched.Lobularcarcinoma - Normal.Normal,
                                HER2enriched.DuctalvsNormal = HER2enriched.Ductalcarcinoma - Normal.Normal,
-                               HER2enriched.DuctOthersvsNormal = HER2enriched.Ductualmixedwithothers - Normal.Normal,
+                               #HER2enriched.DuctOthersvsNormal = HER2enriched.Ductualmixedwithothers - Normal.Normal,
                                
                                HER2enriched.LobularvsDuctal = HER2enriched.Lobularcarcinoma - HER2enriched.Ductalcarcinoma,
-                               HER2enriched.LobularvsDuctOther = HER2enriched.Lobularcarcinoma - HER2enriched.Ductualmixedwithothers,
+                               #HER2enriched.LobularvsDuctOther = HER2enriched.Lobularcarcinoma - HER2enriched.Ductualmixedwithothers,
                                
                                HER2enriched.DuctalvsLobular = HER2enriched.Ductalcarcinoma - HER2enriched.Lobularcarcinoma,
-                               HER2enriched.DuctalvsDuctOthers = HER2enriched.Ductalcarcinoma - HER2enriched.Ductualmixedwithothers,
+                               #HER2enriched.DuctalvsDuctOthers = HER2enriched.Ductalcarcinoma - HER2enriched.Ductualmixedwithothers,
                                
-                               HER2enriched.DuctOthersvsLobular = HER2enriched.Ductualmixedwithothers - HER2enriched.Lobularcarcinoma,
-                               HER2enriched.DuctOthersvsDuctal = HER2enriched.Ductualmixedwithothers - HER2enriched.Ductalcarcinoma,
+                               #HER2enriched.DuctOthersvsLobular = HER2enriched.Ductualmixedwithothers - HER2enriched.Lobularcarcinoma,
+                               #HER2enriched.DuctOthersvsDuctal = HER2enriched.Ductualmixedwithothers - HER2enriched.Ductalcarcinoma,
                                
                                NormalLike.LobularvsNormal = NormalLike.Lobularcarcinoma - Normal.Normal,
                                NormalLike.DuctalvsNormal = NormalLike.Ductalcarcinoma - Normal.Normal,
@@ -1089,53 +1022,53 @@ contr.matrix <- makeContrasts(x40andDown.LumAvsLumB = LuminalA.40andDown - Lumin
 contr.matrix <- makeContrasts(LobularvsNormal = Lobularcarcinoma - Normal,
                               DuctalvsNormal = Ductalcarcinoma - Normal,
                               DuctLobvsNormal = Ductalandlobularmixed - Normal,
-                              DuctOthersvsNormal = Ductualmixedwithothers - Normal,
+                              #DuctOthersvsNormal = Ductualmixedwithothers - Normal,
                               MetaplastvsNormal = Metaplasticcarcinoma - Normal,
                               MucinousvsNormal = Mucinousadenocarcinoma - Normal,
                               
                               LobularvsDuctal = Lobularcarcinoma - Ductalcarcinoma,
                               LobularvsDuctLob = Lobularcarcinoma - Ductalandlobularmixed,
-                              LobularvsDuctOther = Lobularcarcinoma - Ductualmixedwithothers,
+                              #LobularvsDuctOther = Lobularcarcinoma - Ductualmixedwithothers,
                               LobularvsMetaplast = Lobularcarcinoma - Metaplasticcarcinoma,
                               LobularvsMucinous = Lobularcarcinoma - Mucinousadenocarcinoma,
                               
                               DuctalvsLobular = Ductalcarcinoma - Lobularcarcinoma,
                               DuctalvsDuctLob = Ductalcarcinoma - Ductalandlobularmixed,
-                              DuctalvsDuctOthers = Ductalcarcinoma - Ductualmixedwithothers,
+                              #DuctalvsDuctOthers = Ductalcarcinoma - Ductualmixedwithothers,
                               DuctalvsMetaplast = Ductalcarcinoma - Metaplasticcarcinoma,
                               DuctalvsMucinous = Ductalcarcinoma - Mucinousadenocarcinoma,
                               
                               DuctLobvsLobular = Ductalandlobularmixed - Lobularcarcinoma,
                               DuctLobvsDuctal  = Ductalandlobularmixed - Ductalcarcinoma,
-                              DuctLobvsDuctOther =Ductalandlobularmixed - Ductualmixedwithothers,
+                              #DuctLobvsDuctOther =Ductalandlobularmixed - Ductualmixedwithothers,
                               DuctLobvsMetaplast =Ductalandlobularmixed - Metaplasticcarcinoma,
                               DuctLobvsMucinous  =Ductalandlobularmixed - Mucinousadenocarcinoma,
                               
-                              DuctOthersvsLobular = Ductualmixedwithothers - Lobularcarcinoma,
-                              DuctOthersvsDuctal = Ductualmixedwithothers - Ductalcarcinoma,
-                              DuctOthersvsDuctLob = Ductualmixedwithothers -  - Ductalandlobularmixed,
-                              DuctOthersvsMetaplast = Ductualmixedwithothers - - Metaplasticcarcinoma,
-                              DuctOthersvsMucinous  = Ductualmixedwithothers -  Mucinousadenocarcinoma,
+                              #DuctOthersvsLobular = Ductualmixedwithothers - Lobularcarcinoma,
+                             # DuctOthersvsDuctal = Ductualmixedwithothers - Ductalcarcinoma,
+                              #DuctOthersvsDuctLob = Ductualmixedwithothers -  - Ductalandlobularmixed,
+                              #DuctOthersvsMetaplast = Ductualmixedwithothers - - Metaplasticcarcinoma,
+                              #DuctOthersvsMucinous  = Ductualmixedwithothers -  Mucinousadenocarcinoma,
                               
                               MetaplastvsLobular = Metaplasticcarcinoma -  Lobularcarcinoma,
                               MetaplastvsDuctal = Metaplasticcarcinoma - Ductalcarcinoma,
                               MetaplastvsDuctLob = Metaplasticcarcinoma -  Ductalandlobularmixed,
-                              MetaplastvsDuctOther = Metaplasticcarcinoma -  Ductualmixedwithothers,
+                              #MetaplastvsDuctOther = Metaplasticcarcinoma -  Ductualmixedwithothers,
                               MetaplastvsMucinous = Metaplasticcarcinoma  -   Mucinousadenocarcinoma,
                               
                               MucinousvsLobular = Mucinousadenocarcinoma -  Lobularcarcinoma,
                               MucinousvsDuctal = Mucinousadenocarcinoma -Ductalcarcinoma,
                               MucinousvsDuctLob = Mucinousadenocarcinoma -  Ductalandlobularmixed,
-                              MucinousvsDuctOther = Mucinousadenocarcinoma - Ductualmixedwithothers,
+                              #MucinousvsDuctOther = Mucinousadenocarcinoma - Ductualmixedwithothers,
                               MucinousvsMetaplast = Mucinousadenocarcinoma - Metaplasticcarcinoma,
                               
                               levels = colnames(design)) 
   
 
-contr.matrix <- makeContrasts( Stage1vsNorm = stage1 ,#- Normal,  
-                               Stage2vsNorm = stage2 ,#- Normal,
-                               Stage3vsNorm = stage3,# - Normal,
-                               Stage4vsNorm = stage4,# - Normal,
+contr.matrix <- makeContrasts( Stage1vsNorm = stage1 - Normal,  
+                               Stage2vsNorm = stage2 - Normal,
+                               Stage3vsNorm = stage3 - Normal,
+                               Stage4vsNorm = stage4 - Normal,
                                
                                Stage1vsStage2 = stage1 - stage2,
                                Stage1vsStage3 = stage1 - stage3,
@@ -1148,6 +1081,7 @@ contr.matrix <- makeContrasts( Stage1vsNorm = stage1 ,#- Normal,
                                Stage3vsStage4 = stage3 - stage4,
                                Stage3vsStage2 = stage3 - stage2,
                                Stage3vsStage1 = stage3 - stage1,
+                               
                                
                                
                                levels = colnames(design)) 
@@ -1188,19 +1122,6 @@ contr.matrix <- makeContrasts( LumAvsLumB = LuminalA - LuminalB,     #unique com
 
 
 #####
-
-
-v <- voom(y, design, plot=F); print ("done Voom")
-vfit <- lmFit(v, design); print ("done lmFit")
-print(colnames(vfit))
-length(colnames(vfit))
-as.vector(rep(0,12))->a
-a[1]<- as.numeric(-1)
-a[2]<- as.numeric(1)
-vfit <- contrasts.fit(vfit, contrasts=a)
-efit <- eBayes(vfit); print ("done eBayes")
-dt<-decideTests(efit, p.value=0.05, lfc= 1, adjust.method="BH")
-summary(dt)
 
 # eBayes
 DEA_limmaVoom <- function(y, design, contr.matrix=NULL) {
@@ -1508,31 +1429,7 @@ getGeneNames<-function(comparison, direction){
   return(as.character(genes))
 }
 
-## getting autophagy genes DE in a supplies gene list
-sharedWithAuto <-function (gene_list){
-  autophagy_genes<- as.vector(read.table("autopahagy_genes.txt", as.is = T, header = FALSE))$V1
-  shared <- intersect(autophagy_genes,gene_list)
-  print(paste0("Total number of genes in the list : ", length(gene_list)))
-  print(paste0("Autophagy genes among these: ", length(shared)))
-  return(shared)
-  
-}
-sharedWithAutoCORE <-function (gene_list){
-  autophagy_genes<- as.vector(read.table("autophagic_core.txt", as.is = T, header = FALSE))$V1
-  shared <- intersect(autophagy_genes,gene_list)
-  print(paste0("Total number of genes in the list : ", length(gene_list)))
-  print(paste0("Autophagy CORE genes among these: ", length(shared)))
-  return(shared)
-  
-}
-sharedWithAutoTF <-function (gene_list){
-  autophagy_genes<- as.vector(read.table("transcription_factors.txt", as.is = T, header = FALSE))$V1
-  shared <- intersect(autophagy_genes,gene_list)
-  print(paste0("Total number of genes in the list : ", length(gene_list)))
-  print(paste0("Autophagy TF genes among these: ", length(shared)))
-  return(shared)
-  
-}
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data")
 
 
 
@@ -1604,14 +1501,14 @@ length(autophagy_genesDE)
 length(autophagyCORE_genesDE)
 length(autophagyTF_genesDE)
 
-
+save(all_genesDE, file="pam50_DE_genes.rda")
 
 # with 3>12 : 7559, 396, 34, 51
 # with 2>19 7622,399,34,50
 
 # when group1 is in the model, for PAM50: 6818 / 412/ 52 /48
 
-save(all_genesDE, file="all_genesDE.rda")
+save(all_genesDE, file="group1_all_genesDE.rda")
 save(autophagy_genesDE, file="autophagy_genesDE.rda")
 
 

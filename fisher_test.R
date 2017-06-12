@@ -16,7 +16,7 @@ autoALL_DEgenes<- get(load(paste0(class, "_DE_AUTO_genes_numbers3.rda")))
 autoCORE_DEgenes<- get(load(paste0(class, "_DE_AUTOCORE_genes_numbers3.rda")))
 autoTF_DEgenes<- get(load(paste0(class, "_DE_AUTOTF_genes_numbers3.rda")))
 
-N <- 15801 # The total number of genes :17372 ##### THIS WILL CHANGE
+N <- 15784 # The total number of genes :17372 ##### THIS WILL CHANGE
 
 # add columns for enrichment, p.val, p.val.adj in autophagy df
 extra_colnames<-c("up_oddsratio", "down_oddsratio", "both_oddsratio",

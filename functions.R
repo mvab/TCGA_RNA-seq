@@ -11,6 +11,33 @@ getAutophagyGenes <- function(dataSE){
   return(newdataSE)
 } 
 
+## getting autophagy genes DE in a supplies gene list
+sharedWithAuto <-function (gene_list){
+  autophagy_genes<- as.vector(read.table("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/autopahagy_genes.txt", as.is = T, header = FALSE))$V1
+  shared <- intersect(autophagy_genes,gene_list)
+  print(paste0("Total number of genes in the list : ", length(gene_list)))
+  print(paste0("Autophagy genes among these: ", length(shared)))
+  return(shared)
+  
+}
+sharedWithAutoCORE <-function (gene_list){
+  autophagy_genes<- as.vector(read.table("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/autophagic_core.txt", as.is = T, header = FALSE))$V1
+  shared <- intersect(autophagy_genes,gene_list)
+  print(paste0("Total number of genes in the list : ", length(gene_list)))
+  print(paste0("Autophagy CORE genes among these: ", length(shared)))
+  return(shared)
+  
+}
+sharedWithAutoTF <-function (gene_list){
+  autophagy_genes<- as.vector(read.table("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/transcription_factors.txt", as.is = T, header = FALSE))$V1
+  shared <- intersect(autophagy_genes,gene_list)
+  print(paste0("Total number of genes in the list : ", length(gene_list)))
+  print(paste0("Autophagy TF genes among these: ", length(shared)))
+  return(shared)
+  
+}
+
+
 addClinData<-function(sample.matrix){
   
   #clindata<-get(load("clinData_prepared.rda")) #old from elena' data
@@ -321,6 +348,39 @@ dataSE<- dataSE[,c(samples.matrixRecep$barcode)]
 dim(dataSE)
 
 
+keepOnly<-function(dataSE, samples.matrix){
+  
+  #morphology
+  samples.matrix[samples.matrix$tumourTypes=="Lobular carcinoma" | samples.matrix$tumourTypes== "Ductal carcinoma"| samples.matrix$tumourTypes== "Normal",]$barcode -> morph
+  length(morph)
+  samples.matrix<-samples.matrix[samples.matrix$barcode %in% morph,]
+  dim(samples.matrix)
+  
+  #stages
+  samples.matrix[samples.matrix$tumourStages!="unknown" & samples.matrix$tumourStages!="stage4",]$barcode -> stage
+  length(stage)
+  samples.matrix<-samples.matrix[samples.matrix$barcode %in% stage,]
+  dim(samples.matrix)
+  
+  #pam50
+  samples.matrix[samples.matrix$PAM50!="Normal-like",]$barcode -> pam50
+  length(pam50)
+  samples.matrix<-samples.matrix[samples.matrix$barcode %in% pam50,]
+  dim(samples.matrix)
+  
+  to_keep <- samples.matrix$barcode
+  length(to_keep)
+  
+  dataSE<-dataSE[, colnames(dataSE) %in% to_keep ]
+  dim(dataSE)
+  
+  return(list(dataSE=dataSE, samples.matrix=samples.matrix))
+  
+}
+
+onlysamples<-keepOnly(dataSE, samples.matrix)
+dataSE<-onlysamples$dataSE
+samples.matrix<-onlysamples$samples.matrix
 
 
 
