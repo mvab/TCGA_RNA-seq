@@ -1,3 +1,4 @@
+library(RColorBrewer)
 setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/DEA/")
 
 samples.matrix<-get(load("samplesMatrix_full.rda"))
@@ -84,17 +85,18 @@ annColour <-list(
 
 
 ######
-
+library(viridis)
 
 #extract only genes in auto group of interest
-for (i in 1:length(names(autophagy_genes))){
+for (i in 1:1){#length(names(autophagy_genes))){
   name<-(names(autophagy_genes)[i])
   group<-autophagy_genes[[name]]
   
   geneExp <- v$E[rownames(v$E) %in% group , ]
-  print (paste0( name,"; Genes: " dim(geneExp)[1], " --- making a heatmap.."))
+  print (paste0( name,"; Genes: ", dim(geneExp)[1], " --- making a heatmap.."))
   
-  pheatmap::pheatmap(mat = as.matrix(geneExp), color = brewer.pal(name = "YlGnBu", n = 9),
+  pheatmap::pheatmap(mat = as.matrix(geneExp), color = brewer.pal(name = "Purples", n = 9),
+  #pheatmap::pheatmap(mat = as.matrix(geneExp), color = rev(viridis_pal()(20)),
                    clustering_distance_rows = 'manhattan', 
                    clustering_distance_cols = 'manhattan', 
                    #scale="row",

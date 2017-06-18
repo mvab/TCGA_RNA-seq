@@ -9,7 +9,7 @@ data<-get(load("all_samples_6clusters_genesforDEA_cluster_data.rda"))
 data<-get(load("all_samples_genesforDEA_cluster_data.rda"))
 data<-get(load("stages_genesforDEA_cluster_data.rda"))
 data<-get(load("group1_genesforDEA_cluster_data.rda"))
-data<-get(load("group1_lumA_genesforDEA_cluster_data.rda"))
+data<-get(load("lumB_genesforDEA_cluster_data.rda"))
 
 
 
@@ -91,7 +91,7 @@ class<-"all_samples_6clusters_genesforDEA"
 class<-"stages_genesforDEA" 
 class<-"all_samples_genesforDEA" 
 class<-"group1_genesforDEA" 
-class<-"group1_lumA_genesforDEA" 
+class<-"lumB_genesforDEA" 
 
 #all_samples_genesforDEA
 save(genesDEdf, file=paste0(class, "_DE_genes_numbers3.rda"))
@@ -107,7 +107,7 @@ autoALL_DEgenes<- get(load(paste0(class, "_DE_AUTO_genes_numbers3.rda")))
 autoCORE_DEgenes<- get(load(paste0(class, "_DE_AUTOCORE_genes_numbers3.rda")))
 autoTF_DEgenes<- get(load(paste0(class, "_DE_AUTOTF_genes_numbers3.rda")))
 
-N <- 10035#12684# 13656 # The total number of genes :17372 ##### THIS WILL CHANGE
+N <- 13656 #10035#12684# 13656 # The total number of genes :17372 ##### THIS WILL CHANGE
 
 # add columns for enrichment, p.val, p.val.adj in autophagy df
 extra_colnames<-c("oddsratio", 
@@ -147,22 +147,23 @@ fisher_test<-function(DEgenes,DEgenes_group,N,K){
 #ALL
 autoALL_DEgenes<-cbind(autoALL_DEgenes,matrix(data=NA, nrow=nrow(autoALL_DEgenes), ncol=3))
 names(autoALL_DEgenes)[2:4]<-extra_colnames
-K <- 595#980#595#224#1090 #1035#198#535 #1001 # The number of gene belonging to a gene famility---- AUTOPHAGY ALL
+K <- 1028#595#980#595#224#1090 #1035#198#535 #1001 # The number of gene belonging to a gene famility---- AUTOPHAGY ALL
 autoALL_DEgenes<-fisher_test(DEgenes,autoALL_DEgenes,N,K);autoALL_DEgenes
 
 #CORE
 autoCORE_DEgenes<-cbind(autoCORE_DEgenes,matrix(data=NA, nrow=nrow(autoCORE_DEgenes), ncol=3))
 names(autoCORE_DEgenes)[2:4]<-extra_colnames
-K <- 68#142#39#68#20#155 #150#16#63# 145 # The number of gene belonging to a gene famility---- AUTOPHAGY CORE
+K <-149 #68#142#39#68#20#155 #150#16#63# 145 # The number of gene belonging to a gene famility---- AUTOPHAGY CORE
 autoCORE_DEgenes<-fisher_test(DEgenes,autoCORE_DEgenes,N,K);autoCORE_DEgenes
 
 
 #TF
 autoTF_DEgenes<-cbind(autoTF_DEgenes,matrix(data=NA, nrow=nrow(autoTF_DEgenes), ncol=3))
 names(autoTF_DEgenes)[2:4]<-extra_colnames
-K <- 57#82##33#97 #89#27#47#85 # The number of gene belonging to a gene famility---- AUTOPHAGY TF
+K <- 909 #57#82##33#97 #89#27#47#85 # The number of gene belonging to a gene famility---- AUTOPHAGY TF
 autoTF_DEgenes<-fisher_test(DEgenes,autoTF_DEgenes,N,K);autoTF_DEgenes
 
 autoALL_DEgenes
 autoCORE_DEgenes
 autoTF_DEgenes
+

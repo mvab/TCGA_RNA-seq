@@ -54,6 +54,36 @@ sampleTokeepSE <- PAMNPout$samplesToKeep
 dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
 dim(dataSE) 
 
+##### testing fro male samples D;
+
+
+# exclude mrphology samples Ductal mixed with Others
+removeUnknownOther <- function(dataSE, samples.matrix){
+  samples.matrix[samples.matrix$tumourTypes=="Ductual mixed with others",]$barcode -> to_remove
+  to_remove<- as.character(to_remove)
+  
+  samples.matrix<-samples.matrix[!samples.matrix$barcode %in% to_remove,]
+  dim(samples.matrix)
+  dataSE<-dataSE[, !colnames(dataSE) %in% to_remove ]
+  dim(dataSE)
+  
+  return(list(dataSE=dataSE, samples.matrix=samples.matrix))
+}
+removedsamples<-removeUnknownOther(dataSE, samples.matrix)
+dataSE<-removedsamples$dataSE
+samples.matrix<-removedsamples$samples.matrix
+dim(dataSE)
+dim(samples.matrix)
+
+
+# excluded unknown satge (ony for satges PCA)
+known_stage<-samples.matrix[samples.matrix$tumourStages!='unknown',]$barcode
+dataSE<- dataSE[,colnames(dataSE) %in% known_stage]
+dim(dataSE)
+samples.matrix<-samples.matrix[samples.matrix$tumourStages!='unknown',]
+dim(samples.matrix)
+
+
 # if used addOnlyTopTSS DO THIS:
 samples.matrix<-addOnlyTopTSS(samples.matrix)
 dim(samples.matrix)
@@ -86,11 +116,23 @@ samples.matrix$tumourTypes <- as.factor(samples.matrix$tumourTypes)
 
 
   
-###################### EDA for (full) dataset ######################### 
-cbPalette <- c( "#E69F00", "#0072B2", "#F0E442","#D55E00",  "#009E73", "#CC79A7",   "#56B4E9", "black")
-cbPaletteM <- c(  "#F0E442", "#D55E00","#E69F00", "#56B4E9", "#CC79A7",  "#0072B2", "#009E73",  "black","white")#
-cbPaletteOther <- c(  "#F0E442", "#56B4E9", "#CC79A7", "#D55E00","#E69F00",  "#0072B2", "#009E73",  "black")
-fortyColours<-c("#3579b4","#c8c049","#8996da","#ee5345","#c84297","#43ea3b","#50a376","#281340","#6e5c41","#94f5d2","#fd0d32","#f19832","#b1f555","#d727b1","#f27456","#4bfe9f","#61789b","#2896be","#db1453","#c7a233","#d9a5c8","#1e785f","#3183e5","#82117f","#e5cbb0","#2dc194","#8f2ccf","#4e8fec","#e7ad8a","#234220","#4cee30","#d7b51c","#c96629","#472134","#36d1c8","#9f6f63","#ac8d3c","#a63dbd","#1db9d9","#10c399")
+## palettes
+tnPalette=c("deeppink2", "dodgerblue2")
+cbPalette <- c( "#E69F00", "#0072B2", "#F0E442", "#D55E00",  "#009E73", "#CC79A7",   "#56B4E9", "black")
+tumourTypCol = c( "#F0E442", "#56B4E9", "#CC79A7", "#D55E00", "#0072B2", "#009E73", "#E69F00")
+tumourStagesCol = c( "#009E73", "#F0E442", "#E69F00", "#CC79A7", "red3")
+year_cols<-c("#3579b4", "#c8c049", "#8996da", "#ee5345", "#c84297",
+             "#ac8d3c", "#50a376", "#9f6f63", "#36d1c8", "#a63dbd",
+             "#8f2ccf", "#4e8fec", "#e7ad8a", "#d727b1", "#f27456",
+             "#ac8d3c", "#61789b", "#2896be", "#db1453", "#c7a233",
+             "#d9a5c8", "#1e785f", "#3183e5", "#82117f", "#e5cbb0",
+             "#d7b51c")
+source_cols<-c("#fc8785", "#3cb777", "#575a6c", "#c390ec", "#c5eebd",
+               "#4dc9d5", "#d1f6f2", "#e4f90d", "#5c9134", "#4159e2",
+               "#f3132d", "#d0abef", "#80eb6e", "#05dda1", "#af7fae",
+               "#349ad6", "#f2e5a9", "#43a405", "#f05017", "#f655f5",   
+               "#01e034", "#3f7f56", "#016ecd", "#e2523f", "#b270e4")
+
 
 
 dim(dataSE)    
@@ -101,98 +143,61 @@ EM <- cpm(x=dge, log=TRUE)
 # Perfrom PCA
 pca <- prcomp(x=t(EM), scale=TRUE, center=TRUE)
 
-# Inspect components
-summary(pca)
-#type                               
-qplot(data=as.data.frame(pca$x), x=PC1, y=PC2, geom=c("point"), color=samples.matrix$PAM50)
+#getting variance proportion of PCs
+std<-pca$sdev #compute standard deviation of each principal component
+var<-std^2  #compute variance
+var[1:10]#check variance of first 10 components
+prop_varex <- var*100/sum(var)#proportion of variance explained
+prop_varex[1:10] # get varinces in percntages
 
-#PAM50 status
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$PAM50))+ #, shape =samples.matrix$tumourType
-  geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
+
+# Inspect components
+#summary(pca)
+qplot(data=as.data.frame(pca$x), x=PC1, y=PC2, geom=c("point"), color=samples.matrix$PAM50)
+#PAM50   
+
+dev.off()
+
+ggplot(data=as.data.frame(pca$x),aes(x=PC4,y=PC2,col=samples.matrix$PAM50))+ 
+  geom_point(size=2.1,alpha=0.9)+ #Size and alpha just for fun
   #scale_colour_brewer(palette = "Set2")+ #your colors 
   scale_colour_manual(values=cbPalette)+
-  theme_classic()+
+  ggtitle("PCA plot of PAM50 subtypes and normal samples")+
+  labs(x="PC1 (11.04%)", y="PC2 (8.63%)")+
+  theme_classic(base_size = 10)+
   theme(legend.position="bottom",
-        legend.title=element_blank())
+        legend.title=element_blank(),
+        plot.title = element_text(hjust = 0.5))
 
-# tumour types
-ggplot(data=as.data.frame(pca$x),aes(x=PC3,y=PC2,col=samples.matrix$tumourTypes))+ #, shape =samples.matrix$tumourType
-geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
-#scale_colour_brewer(palette = "Set2")+ #your colors here
-scale_colour_manual(values=cbPaletteM)+
-theme_classic()+
-theme(legend.position="bottom",
-legend.title=element_blank())
-
-
-########### testing other categories ###########
-thirteenColours<-c("#3579b4","#c8c049","#8996da","#ee5345","#c84297","#43ea3b","#50a376","#281340","#6e5c41","#fd0d32","#f19832","#94f5d2","white")
-fortyColours2<-c("#3579b4","#c8c049","#8996da","#ee5345","#c84297",
-                "#43ea3b","#50a376","#281340","#6e5c41","#94f5d2",
-                "#94f5d2","#94f5d2","#94f5d2","#d727b1","#f27456",
-                "#ac8d3c","#61789b","#2896be","#db1453","#c7a233",
-                "#d9a5c8","#1e785f","#3183e5","#82117f","#e5cbb0",
-                "#9f6f63","#8f2ccf","#4e8fec","#e7ad8a","#234220",
-                "#4cee30","#d7b51c","#c96629","#472134","#36d1c8",
-                "#9f6f63","#ac8d3c","#a63dbd","#1db9d9","#10c399")
-
-customCol=c("#4e8fec","#e7ad8a", "#8f2ccf",
-            "#4cee30","#d7b51c","#c96629","#61789b","#36d1c8",
-            "#9f6f63","#ac8d3c","#a63dbd","#1db9d9","#10c399")
-
-# "#3579b4", normal
-substagesCols=c( "greenyellow", "green1","green4",
-                  "deeppink", "deeppink2","deeppink4", 
-                  "deepskyblue","deepskyblue2", "deepskyblue4", "dodgerblue4",
-                  "orange","white")
-
-names(samples.matrix)
-
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$metastasis))+ #, shape =samples.matrix$tumourType
-  geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
-  #scale_colour_brewer(palette = "Set2")+ #your colors here
-  scale_colour_manual(values=cbPaletteM)+# thirteenColours)+
-  theme_classic()+
+#morphology
+ggplot(data=as.data.frame(pca$x),aes(x=PC3,y=PC2,col=samples.matrix$tumourTypes))+ 
+  geom_point(size=2.1,alpha=1)+ #Size and alpha just for fun
+  #scale_colour_brewer(palette = "Set2")+ #your colors 
+  scale_colour_manual(values=tumourTypCol)+
+  ggtitle("PCA plot of morphology groups and normal samples")+
+  labs(x="PC3 (5.43%)", y="PC2 (8.63%)")+
+  theme_classic(base_size = 10)+
   theme(legend.position="bottom",
-        legend.title=element_blank())
+        legend.title=element_blank(),
+        plot.title = element_text(hjust = 0.6))
 
-d <- data.frame(samples.matrix, pca$x)
-p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:6))
 
-ggplot(p, aes(x=year_diagnosed, y=score, fill=year_diagnosed)) + 
-  geom_boxplot(outlier.colour=NaN) + 
-  geom_jitter(aes(color=year_diagnosed),alpha=0.3) + 
-  facet_wrap(~PC) + 
-  #scale_fill_manual(values=customCol)+
+#stage
+ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$tumourStages))+ 
+  geom_point(size=2.1,alpha=0.9)+ #Size and alpha just for fun
+  #scale_colour_brewer(palette = "Set2")+ #your colors 
+  scale_colour_manual(values=tumourStagesCol)+
+  ggtitle("PCA plot of cancer stages and normal samples")+
+  labs(x="PC1 (11.04%)", y="PC2 (8.63%)")+
+  theme_classic(base_size = 10)+
   theme(legend.position="bottom",
-        axis.text.x = element_text(angle = 90, hjust = 1))
-  #scale_fill_brewer(palette="Set2")
+        legend.title=element_blank(),
+        plot.title = element_text(hjust = 0.7))
 
 
-##################################
+#### 1D PCA PLOTS (final look!)
 
-  
-# tumour stages
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$tumourStages))+ #, shape =samples.matrix$tumourType
-  geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
-  #scale_colour_brewer(palette = "Set2")+ #your colors here
-  scale_colour_manual(values=cbPaletteM)+
-  theme_classic()+
-  theme(legend.position="bottom",
-        legend.title=element_blank())
-
-#age group
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$ageGroup))+ #, shape =samples.matrix$tumourType
-  geom_point(size=2.5,alpha=0.9)+ #Size and alpha just for fun
-  scale_colour_brewer(palette = "Set2")+ #your colors here
-  theme_classic()+
-  theme(legend.position="bottom",
-        legend.title=element_blank())
-
-
-#### exploring PCs
-
-# T/N
+#t/n
 d <- data.frame(samples.matrix, pca$x)
 p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:9))
 
@@ -200,7 +205,13 @@ ggplot(p, aes(x=condition, y=score, fill=condition)) +
   geom_boxplot(outlier.colour=NaN) + 
   #geom_jitter(alpha=0.5) + 
   facet_wrap(~PC) + 
-  scale_fill_brewer(palette="Set2")
+  scale_fill_manual(values=tnPalette)+
+  ggtitle(" 1D PCA plot showing varince along PC1-PC9 \nfor cancer and normal samples")+
+  labs(x=" ", y=" ")+
+  #theme_minimal()+
+  theme(legend.position="bottom",
+        legend.title=element_blank(),
+        plot.title = element_text(hjust = 0.5))
 
 #PAM50
 d <- data.frame(samples.matrix, pca$x)
@@ -208,10 +219,14 @@ p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filt
 
 ggplot(p, aes(x=PAM50, y=score, fill=PAM50)) + 
   geom_boxplot(outlier.colour=NaN) + 
-  #geom_jitter(alpha=0.5) + 
   facet_wrap(~PC) + 
-  scale_fill_manual(values=cbPalette)
-  #scale_fill_brewer(palette="Set2")
+  scale_fill_manual(values=cbPalette)+
+  ggtitle("1D PCA plot showing varince along PC1-PC9 \nfor PAM50 subtypes and normal samples")+
+  theme(axis.text.x=element_blank(),
+      axis.ticks.x=element_blank(),
+      legend.title=element_blank(),
+      plot.title = element_text(hjust = 0.5))
+
 
 
 #tumour types 
@@ -220,10 +235,14 @@ p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filt
 
 ggplot(p, aes(x=tumourTypes, y=score, fill=tumourTypes)) + 
   geom_boxplot(outlier.colour=NaN) + 
-  #geom_jitter(alpha=0.5) + 
   facet_wrap(~PC) + 
-  scale_fill_manual(values=cbPaletteM)
-  #scale_fill_brewer(palette="Set2")
+  scale_fill_manual(values=tumourTypCol)+
+  ggtitle("1D PCA plot showing varince along PC1-PC9 \nfor morphology groups and normal samples")+
+  labs(x="Morphology")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.title=element_blank(),
+        plot.title = element_text(hjust = 0.5))
 
 #tumour stages
 d <- data.frame(samples.matrix, pca$x)
@@ -231,10 +250,73 @@ p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filt
 
 ggplot(p, aes(x=tumourStages, y=score, fill=tumourStages)) + 
   geom_boxplot(outlier.colour=NaN) + 
-  #geom_jitter(alpha=0.5) + 
   facet_wrap(~PC) + 
-  scale_fill_manual(values=cbPalette)
-  #scale_fill_brewer(palette="Set2")
+  scale_fill_manual(values=tumourStagesCol)+
+  ggtitle("1D PCA plot showing varince along PC1-PC9 \nfor cancer stages and normal samples")+
+  labs(x="Cancer stages")+
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        legend.title=element_blank(),
+        plot.title = element_text(hjust = 0.5))
+
+
+#year taken
+d <- data.frame(samples.matrix, pca$x)
+p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:6))
+
+ggplot(p, aes(x=year_diagnosed, y=score, fill=year_diagnosed)) + 
+  geom_boxplot(outlier.colour=NaN) + 
+  scale_fill_manual(values=year_cols)+
+  geom_jitter(alpha=0.3, aes(color=year_diagnosed)) +
+  scale_color_manual(values=year_cols)+
+  facet_wrap(~PC) + 
+  theme(legend.position="bottom",
+        axis.text.x = element_text(angle = 90, hjust = 1, size=7))+
+  guides(fill=guide_legend(nrow=3))+
+  ggtitle("1D PCA plot showing varince along PC1-PC6 \nfor years samples were taken")+
+  labs(x="Year sample taken")+
+  theme(legend.title=element_blank(),
+        plot.title = element_text(hjust = 0.5))
+
+
+# source site
+names(samples.matrix)[19]<-'source_site'
+d <- data.frame(samples.matrix, pca$x)
+p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:6))
+
+ggplot(p, aes(x=source_site, y=score, fill=source_site)) + 
+  geom_boxplot(outlier.colour=NaN) + 
+  scale_fill_manual(values=source_cols)+
+  geom_jitter(alpha=0.1, aes(color=source_site)) +
+  scale_color_manual(values=source_cols)+
+  facet_wrap(~PC) + 
+  theme(legend.position="bottom",
+        axis.text.x = element_text(angle =0, hjust = 0.5, size=5))+
+  guides(fill=guide_legend(nrow=2))+
+  ggtitle("1D PCA plot showing varince along PC1-PC6 \nfor sample source site")+
+  labs(x="Sample source site codes")+
+  theme(legend.title=element_blank(),
+        plot.title = element_text(hjust = 0.5))
+
+
+library(scales)
+show_col(source_cols)
+
+#age groups!
+
+ggplot(p, aes(x=ageGroups, y=score, fill=ageGroups)) + 
+  geom_boxplot(outlier.colour=NaN) + 
+  scale_fill_manual(values=source_cols)+
+  scale_color_manual(values=source_cols)+
+  facet_wrap(~PC) + 
+  theme(legend.position="bottom",
+        axis.text.x = element_text(angle =45, hjust = 0.5, size=8))+
+  guides(fill=guide_legend(nrow=1))+
+  ggtitle("1D PCA plot showing varince along PC1-PC6 \nfor age groups")+
+  labs(x="Patients age groups")+
+  theme(legend.title=element_blank(),
+        plot.title = element_text(hjust = 0.5))
+
 
 
 

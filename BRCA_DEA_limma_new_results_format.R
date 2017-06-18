@@ -51,7 +51,6 @@ dim(dataSE)
 #dim(samples.matrix)
 
 # exclude mrphology samples Ductal mixed with Others
-
 removeUnknownOther <- function(dataSE, samples.matrix){
   samples.matrix[samples.matrix$tumourTypes=="Ductual mixed with others",]$barcode -> to_remove
   to_remove<- as.character(to_remove)
@@ -267,17 +266,17 @@ contr.matrix <- makeContrasts(
   LuminalA.stage3vsNorm = LuminalA.stage3 - Normal.Normal,
   LuminalA.stage4vsNorm = LuminalA.stage4- Normal.Normal,
   
-  LuminalA.stage1vsLuminalA.stage2 = LuminalA.stage1 - LuminalA.stage2,
-  LuminalA.stage1vsLuminalA.stage3 = LuminalA.stage1 - LuminalA.stage3,
-  LuminalA.stage1vsLuminalA.stage4 = LuminalA.stage1 - LuminalA.stage4,
+  LuminalA.stage1vsstage2 = LuminalA.stage1 - LuminalA.stage2,
+  LuminalA.stage1vsstage3 = LuminalA.stage1 - LuminalA.stage3,
+  LuminalA.stage1vsstage4 = LuminalA.stage1 - LuminalA.stage4,
   
-  LuminalA.stage2vsLuminalA.stage1 = LuminalA.stage2 - LuminalA.stage1,
-  LuminalA.stage2vsLuminalA.stage3 = LuminalA.stage2 - LuminalA.stage3,
-  LuminalA.stage2vsLuminalA.stage4 = LuminalA.stage2 - LuminalA.stage4,
+  LuminalA.stage2vsstage1 = LuminalA.stage2 - LuminalA.stage1,
+  LuminalA.stage2vsstage3 = LuminalA.stage2 - LuminalA.stage3,
+  LuminalA.stage2vsstage4 = LuminalA.stage2 - LuminalA.stage4,
   
-  LuminalA.stage3vsLuminalA.stage4 = LuminalA.stage3 - LuminalA.stage4,
-  LuminalA.stage3vsLuminalA.stage2 = LuminalA.stage3 - LuminalA.stage2,
-  LuminalA.stage3vsLuminalA.stage1 = LuminalA.stage3 - LuminalA.stage1,
+  LuminalA.stage3vsstage4 = LuminalA.stage3 - LuminalA.stage4,
+  LuminalA.stage3vsstage2 = LuminalA.stage3 - LuminalA.stage2,
+  LuminalA.stage3vsstage1 = LuminalA.stage3 - LuminalA.stage1,
   
   
   
@@ -286,17 +285,17 @@ contr.matrix <- makeContrasts(
   LuminalB.stage3vsNorm = LuminalB.stage3 - Normal.Normal,
   LuminalB.stage4vsNorm = LuminalB.stage4- Normal.Normal,
   
-  LuminalB.stage1vsLuminalB.stage2 = LuminalB.stage1 - LuminalB.stage2,
-  LuminalB.stage1vsLuminalB.stage3 = LuminalB.stage1 - LuminalB.stage3,
-  LuminalB.stage1vsLuminalB.stage4 = LuminalB.stage1 - LuminalB.stage4,
+  LuminalB.stage1vsstage2 = LuminalB.stage1 - LuminalB.stage2,
+  LuminalB.stage1vsstage3 = LuminalB.stage1 - LuminalB.stage3,
+  LuminalB.stage1vsstage4 = LuminalB.stage1 - LuminalB.stage4,
   
-  LuminalB.stage2vsLuminalB.stage1 = LuminalB.stage2 - LuminalB.stage1,
-  LuminalB.stage2vsLuminalB.stage3 = LuminalB.stage2 - LuminalB.stage3,
-  LuminalB.stage2vsLuminalB.stage4 = LuminalB.stage2 - LuminalB.stage4,
+  LuminalB.stage2vsstage1 = LuminalB.stage2 - LuminalB.stage1,
+  LuminalB.stage2vsstage3 = LuminalB.stage2 - LuminalB.stage3,
+  LuminalB.stage2vsstage4 = LuminalB.stage2 - LuminalB.stage4,
   
-  LuminalB.stage3vsLuminalB.stage4 = LuminalB.stage3 - LuminalB.stage4,
-  LuminalB.stage3vsLuminalB.stage2 = LuminalB.stage3 - LuminalB.stage2,
-  LuminalB.stage3vsLuminalB.stage1 = LuminalB.stage3 - LuminalB.stage1,
+  LuminalB.stage3vsstage4 = LuminalB.stage3 - LuminalB.stage4,
+  LuminalB.stage3vsstage2 = LuminalB.stage3 - LuminalB.stage2,
+  LuminalB.stage3vsstage1 = LuminalB.stage3 - LuminalB.stage1,
   
   
   
@@ -305,17 +304,17 @@ contr.matrix <- makeContrasts(
   BasalLike.stage3vsNorm = BasalLike.stage3 - Normal.Normal,
   BasalLike.stage4vsNorm = BasalLike.stage4- Normal.Normal,
   
-  BasalLike.stage1vsBasalLike.stage2 = BasalLike.stage1 - BasalLike.stage2,
-  BasalLike.stage1vsBasalLike.stage3 = BasalLike.stage1 - BasalLike.stage3,
-  BasalLike.stage1vsBasalLike.stage4 = BasalLike.stage1 - BasalLike.stage4,
+  BasalLike.stage1vsstage2 = BasalLike.stage1 - BasalLike.stage2,
+  BasalLike.stage1vsstage3 = BasalLike.stage1 - BasalLike.stage3,
+  BasalLike.stage1vsstage4 = BasalLike.stage1 - BasalLike.stage4,
   
-  BasalLike.stage2vsBasalLike.stage1 = BasalLike.stage2 - BasalLike.stage1,
-  BasalLike.stage2vsBasalLike.stage3 = BasalLike.stage2 - BasalLike.stage3,
-  BasalLike.stage2vsBasalLike.stage4 = BasalLike.stage2 - BasalLike.stage4,
+  BasalLike.stage2vsstage1 = BasalLike.stage2 - BasalLike.stage1,
+  BasalLike.stage2vsstage3 = BasalLike.stage2 - BasalLike.stage3,
+  BasalLike.stage2vsstage4 = BasalLike.stage2 - BasalLike.stage4,
   
-  BasalLike.stage3vsBasalLike.stage4 = BasalLike.stage3 - BasalLike.stage4,
-  BasalLike.stage3vsBasalLike.stage2 = BasalLike.stage3 - BasalLike.stage2,
-  BasalLike.stage3vsBasalLike.stage1 = BasalLike.stage3 - BasalLike.stage1,
+  BasalLike.stage3vsstage4 = BasalLike.stage3 - BasalLike.stage4,
+  BasalLike.stage3vsstage2 = BasalLike.stage3 - BasalLike.stage2,
+  BasalLike.stage3vsstage1 = BasalLike.stage3 - BasalLike.stage1,
   
   
   
@@ -324,31 +323,31 @@ contr.matrix <- makeContrasts(
   HER2enriched.stage3vsNorm = HER2enriched.stage3 - Normal.Normal,
   HER2enriched.stage4vsNorm = HER2enriched.stage4- Normal.Normal,
   
-  HER2enriched.stage1vsHER2enriched.stage2 = HER2enriched.stage1 - HER2enriched.stage2,
-  HER2enriched.stage1vsHER2enriched.stage3 = HER2enriched.stage1 - HER2enriched.stage3,
-  HER2enriched.stage1vsHER2enriched.stage4 = HER2enriched.stage1 - HER2enriched.stage4,
+  HER2enriched.stage1vsstage2 = HER2enriched.stage1 - HER2enriched.stage2,
+  HER2enriched.stage1vsstage3 = HER2enriched.stage1 - HER2enriched.stage3,
+  HER2enriched.stage1vsstage4 = HER2enriched.stage1 - HER2enriched.stage4,
   
-  HER2enriched.stage2vsHER2enriched.stage1 = HER2enriched.stage2 - HER2enriched.stage1,
-  HER2enriched.stage2vsHER2enriched.stage3 = HER2enriched.stage2 - HER2enriched.stage3,
-  HER2enriched.stage2vsHER2enriched.stage4 = HER2enriched.stage2 - HER2enriched.stage4,
+  HER2enriched.stage2vsstage1 = HER2enriched.stage2 - HER2enriched.stage1,
+  HER2enriched.stage2vsstage3 = HER2enriched.stage2 - HER2enriched.stage3,
+  HER2enriched.stage2vsstage4 = HER2enriched.stage2 - HER2enriched.stage4,
   
-  HER2enriched.stage3vsHER2enriched.stage4 = HER2enriched.stage3 - HER2enriched.stage4,
-  HER2enriched.stage3vsHER2enriched.stage2 = HER2enriched.stage3 - HER2enriched.stage2,
-  HER2enriched.stage3vsHER2enriched.stage1 = HER2enriched.stage3 - HER2enriched.stage1,
+  HER2enriched.stage3vsstage4 = HER2enriched.stage3 - HER2enriched.stage4,
+  HER2enriched.stage3vsstage2 = HER2enriched.stage3 - HER2enriched.stage2,
+  HER2enriched.stage3vsstage1 = HER2enriched.stage3 - HER2enriched.stage1,
   
   
   NormalLike.stage1vsNorm = NormalLike.stage1 - Normal.Normal,  
   NormalLike.stage2vsNorm = NormalLike.stage2 - Normal.Normal,
   NormalLike.stage3vsNorm = NormalLike.stage3 - Normal.Normal,
   
-  NormalLike.stage1vsNormalLike.stage2 = NormalLike.stage1 - NormalLike.stage2,
-  NormalLike.stage1vsNormalLike.stage3 = NormalLike.stage1 - NormalLike.stage3,
+  NormalLike.stage1vsstage2 = NormalLike.stage1 - NormalLike.stage2,
+  NormalLike.stage1vsstage3 = NormalLike.stage1 - NormalLike.stage3,
   
-  NormalLike.stage2vsNormalLike.stage1 = NormalLike.stage2 - NormalLike.stage1,
-  NormalLike.stage2vsNormalLike.stage3 = NormalLike.stage2 - NormalLike.stage3,
+  NormalLike.stage2vsstage1 = NormalLike.stage2 - NormalLike.stage1,
+  NormalLike.stage2vsstage3 = NormalLike.stage2 - NormalLike.stage3,
   
-  NormalLike.stage3vsNormalLike.stage2 = NormalLike.stage3 - NormalLike.stage2,
-  NormalLike.stage3vsNormalLike.stage1 = NormalLike.stage3 - NormalLike.stage1,
+  NormalLike.stage3vsstage2 = NormalLike.stage3 - NormalLike.stage2,
+  NormalLike.stage3vsstage1 = NormalLike.stage3 - NormalLike.stage1,
   
   # normallike.stage4 does not exist!
   
@@ -1366,6 +1365,9 @@ stop()
 set_logFC=1
 set_FDR=0.05
 
+set_logFC=2
+set_FDR=0.01
+
 ## decideTests        # here coef does not matter
 dt <-DEA_MTC_save(fit, 6, set_logFC , set_FDR)$dt #coef can be anything, report dt for all anyway
 summary(dt)
@@ -1500,6 +1502,20 @@ length(all_genesDE)
 length(autophagy_genesDE)
 length(autophagyCORE_genesDE)
 length(autophagyTF_genesDE)
+
+
+#dt_summaries<-list()
+#dt_summaries<-get(load("groupsDEgenes.rda"))
+#dt_summaries$group3FC2 <-dt
+#names(dt_summaries)
+
+save(dt_summaries, file="groupsDEgenes.rda")
+
+dt_groups<-get(load("groupsDEgenes.rda"))
+names(dt_groups)
+summary(dt_groups$group1FC2)
+               
+
 
 save(all_genesDE, file="pam50_DE_genes.rda")
 

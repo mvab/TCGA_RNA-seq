@@ -90,20 +90,20 @@ dim(RPKM)
 
 
 keep_subtype<-samples.matrix[samples.matrix$PAM50=="Basal-like" & samples.matrix$morphology=="Ductal carcinoma" | samples.matrix$PAM50=="Normal",]$barcode
-RPKMx<- RPKM[,colnames(RPKM) %in% keep_subtype]
-dim(RPKMx)
+RPKM<- RPKM[,colnames(RPKM) %in% keep_subtype]
+dim(RPKM)
 
 
-keep_subtype<-samples.matrix[samples.matrix$PAM50=="Luminal A" | samples.matrix$PAM50=="Normal",]$barcode
-RPKMx<- RPKM[,colnames(RPKM) %in% keep_subtype]
-dim(RPKMx)
+keep_subtype<-samples.matrix[samples.matrix$PAM50=="Luminal B" | samples.matrix$PAM50=="Normal",]$barcode
+RPKM<- RPKM[,colnames(RPKM) %in% keep_subtype]
+dim(RPKM)
 
 
 
 
 # remove samples whose stage is unknowm
 known_stage<-samples.matrix[samples.matrix$tumourStages!='unknown',]$barcode
-RPKM<- RPKMy[,colnames(RPKMy) %in% known_stage]
+RPKM<- RPKM[,colnames(RPKM) %in% known_stage]
 dim(RPKM)
 
 # create a rpkm matrix that has a column per 'time point', i.e. stage
@@ -160,9 +160,6 @@ dim (stage_averages)
 
 #we create the Mfuzz object (ExpressionSet)
 exprSet=ExpressionSet(assayData=stage_averages)
-
-
-
 #As a first step,  we exclude genes with more than 25% of the measurements missing
 #-> genes with 0 RPKM in 25% of the conditions
 exprSet.r <- filter.NA(exprSet, thres=0.25) 
@@ -190,13 +187,13 @@ exprSet.f <- fill.NA(exprSet.r,mode="mean")
 #Calculation the standard deviation shows, however,
 #that the transition between low and high values for variation in 
 #gene expression is smooth and no particular cut-off point is indicated 
-tmp <- filter.std(exprSet.f,min.std=0, visu=FALSE) #genes with lower std will be excluded
+tmp <- filter.std(exprSet.f,min.std=0.3, visu=FALSE) #genes with lower std will be excluded
 
 dim(tmp)
 #setdiff(rownames(exprSet.f), rownames(tmp))
 
 setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/")
-autophagy_genes<- as.vector(read.table("autopahagy_genes.txt", as.is = T, header = FALSE))$V1
+autophagy_genes<- as.vector(read.table("autophagic_core.txt", as.is = T, header = FALSE))$V1
 shared <- intersect(autophagy_genes,rownames(tmp))
 print(paste0("Total number of genes in analysis: ", length(rownames(tmp))))
 print(paste0("Autophagy genes: ", length(shared)))
@@ -238,11 +235,11 @@ current_test <- "transcrfactors_all_samples"
 setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_for_EA/")
 
 # for preview
-cl <- mfuzz(exprSet.s,c=9,m=m1) 
+cl <- mfuzz(exprSet.s,c=7,m=m1) 
 mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0.6, time.labels=colnames(stage_averages), new.window = T)
 
 #for saving
-current_test <- "group1_lumA_genesforDEA"
+current_test <- "lumB_genesforDEA"
 pdf(file=paste0(current_test,".pdf"))
 mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0, time.labels=colnames(stage_averages), new.window = F)
 dev.off()
@@ -270,7 +267,7 @@ for ( i in 1:dim(summary(cores))[1]){
   gene_sum=gene_sum+dim(cores[[i]])[1]
 }
 
-cluster_data
+#cluster_data
 gene_sum
 
 #clusters don't overlap!
