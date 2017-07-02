@@ -17,6 +17,7 @@ source("../functions.R")
 
 ## most recent all types and stages cancer and normal
 dataSE<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedData_wo_batch_GC_010_updatedSE_allTypes_allStages_Female.rda"))
+#dataSE<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedDataGenes_raw_count_for_DEA.rda"))
 samples.matrix<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedData_wo_batch_GC_010_sampleMatrix_allTypes_allStages_Female.rda"))
 dim(samples.matrix)
 dim(dataSE)
@@ -73,7 +74,7 @@ dim(samples.matrix)
 ## 
 
 #get gene lenghts for genes in the analysis : NB this 
-getGeneLenght_out<-getGeneLenght(dataSE)
+getGeneLenght_out<-getGeneLenghtOLD(dataSE)
 gene_lengths<-getGeneLenght_out$gene_lengths
 dataSE<-getGeneLenght_out$dataSE
 dim(dataSE)
@@ -87,6 +88,8 @@ head(dge$genes)
 
 #get  entrezIDs - NB ~1649 genes get removed because can't find annotation
 library("AnnotationDbi")
+#source("https://bioconductor.org/biocLite.R") 
+#biocLite("org.Hs.eg.db")
 library("org.Hs.eg.db")
 columns(org.Hs.eg.db)
 
@@ -96,7 +99,7 @@ dge$genes$entrez <- mapIds(org.Hs.eg.db, keys=row.names(dge), column="ENTREZID",
 genes_w_entrez<-dge$genes[complete.cases(dge$genes),]$SYMBOL
 dge<- dge[rownames(dge) %in% genes_w_entrez,]
 dim(dge) 
-rownames(dge)<-dge$genes$entrez
+rownames(dge)<-dge$genes$entrez # by keeping genes with entrezid you get: 15579/17368
 
 
 #### IF want to RPKM
@@ -121,6 +124,9 @@ dim(dge) #
 genes_for_DEA<-rownames(dge)
 
 #save(genes_for_DEA, file = "genes_for_DEA.rda")
+
+
+
 
 #check autophagy in the current geneset
 #autophagy_genes<- as.vector(read.table("autopahagy_genes.txt", as.is = T, header = FALSE))$V1
@@ -193,7 +199,6 @@ dge<-addSampleData(dge,samples.matrix)
 #to match the between-sample distributions of gene counts
 #in terms of parameters such as quantiles
 y <- calcNormFactors(dge)
-
 
 
 #trying MDS condition 
@@ -1187,15 +1192,15 @@ DEA_MTC_save <-function(fit, my_coef, logFC, FDR){
   up <- data.frame(rownames(tt[tt$direction == "up", ]))
   down <- data.frame(rownames(tt[tt$direction == "down", ]))
   
-  setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/DEA/Group1")
-  #write.table(up, paste0(my_coef,"_up.txt"), sep = "\t",col.names = FALSE,row.names = FALSE, quote = FALSE)
-  #write.table(down, paste0(my_coef,"_down.txt"),sep = "\t", col.names = FALSE, row.names = FALSE, quote = FALSE)
+  setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/DEA/downregulation_trend")
+  write.table(up, paste0(my_coef,"_up.txt"), sep = "\t",col.names = FALSE,row.names = FALSE, quote = FALSE)
+  write.table(down, paste0(my_coef,"_down.txt"),sep = "\t", col.names = FALSE, row.names = FALSE, quote = FALSE)
   
   return(list(tt=tt, dt=dt))
 }
 DEA_limmaVoom_out<-DEA_limmaVoom(y,design,contr.matrix)
 fit<-DEA_limmaVoom_out$fit
-#v<-DEA_limmaVoom_out$v
+v<-DEA_limmaVoom_out$v
 
 
 
@@ -1231,7 +1236,11 @@ library(BiasedUrn)
 go_length <- goana(fit, coef="Stage4vsNorm",species = "Hs", covariate=dge$genes$Length)
 topGO(go_length, ontology="BP") 
 
-##  camera + MSIgDB
+##############
+
+
+
+#######  camera + MSIgDB  ######
 load("MSIgDB/human_c5_v5p2.rdata")
 names(Hs.c5)
 
@@ -1248,29 +1257,68 @@ c5.ind <- ids2indices(Hs.c5, rownames(v))
 #However, in practise, it works well to set a small inter-gene correlation of 
 #about 0.05 using the inter.gene.cor argument.
 
-
-colnames(design[,colSums(design)!=0]) -> cols_to_keep
-design_copy<- design[, colnames(design) %in% cols_to_keep]
-dim(design_copy) 
-
-dim(contr.matrix_copy)
-contr.matrix_copy<-contr.matrix[rownames(contr.matrix) %in% cols_to_keep ,]
-###### TRY remove zero cols before model estimation??? why are they even thre? is there data??
 gst.camera <- camera(v,index=c5.ind,design=design,contrast = contr.matrix[,c("Stage4vsNorm")],inter.gene.cor=0.05)
 
 #CAMERA outputs a dataframe of the resulting statistics, with each row denoting
 #a different gene set. The output is ordered by p-value so that the most significant
 #should be at the top. Let's look at the top 5 gene sets:
   
-gst.camera[1:5,]
+gst.camera[1:10,]
 
 #The total number of significant gene sets at 5% FDR is
 
 table(gst.camera$FDR < 0.05)
 gst.camera[gst.camera$FDR < 0.05,]
 #You can write out the camera results to a csv file to open in excel.
-
 #write.csv(gst.camera,file="gst_BPregVsLac.csv")
+
+#camera copy
+camera_copy<-gst.camera
+camera_copy$GO<-rownames(camera_copy)
+head(camera_copy)
+
+camera_copy[camera_copy$GO=="GO_REGULATION_OF_AUTOPHAGY", ]
+camera_copy[camera_copy$GO=="GO_POSITIVE_REGULATION_OF_AUTOPHAGY", ]
+camera_copy[camera_copy$GO=="GO_NEGATIVE_REGULATION_OF_AUTOPHAGY", ]
+
+
+
+
+
+
+
+### trying with cameraPR -> uses ebayes output: pre-ranked ---> functional class scoring
+
+c5.indPR <- ids2indices(Hs.c5, rownames(fit)) #fit is ebayes object
+
+##### same but in the loop!
+cameraPR_results<-list()
+autophagyGO <- list()
+for (i in colnames(contr.matrix)){
+  print(i)
+  
+  #save results in a list 
+  cameraPR_results[[i]] <- cameraPR(fit$t[,i],index=c5.indPR,inter.gene.cor=0.01)
+  
+  #only keep significant results
+  #cameraPR_results[[i]] <- cameraPR_results[[i]][cameraPR_results[[i]]$FDR < 0.05,]
+  
+  
+  #checking if any contast has authophagy enrichment
+  camera_copy<-cameraPR_results[[i]]
+  camera_copy$GO<-rownames(camera_copy)
+  autophagyGO[[i]]<- data.frame(matrix( NA,  nrow = 0, ncol = ncol(camera_copy)))
+  autophagyGO[[i]]<-rbind(autophagyGO[[i]], camera_copy[camera_copy$GO=="GO_REGULATION_OF_AUTOPHAGY", ])
+  autophagyGO[[i]]<-rbind(autophagyGO[[i]], camera_copy[camera_copy$GO=="GO_POSITIVE_REGULATION_OF_AUTOPHAGY", ])
+  autophagyGO[[i]]<-rbind(autophagyGO[[i]], camera_copy[camera_copy$GO=="GO_NEGATIVE_REGULATION_OF_AUTOPHAGY", ])
+  
+  cat('\n')
+}
+
+names(cameraPR_results)
+cameraPR_results$Stage1vsNorm
+
+autophagyGO
 
 
 stop()
@@ -1278,7 +1326,7 @@ stop()
 
 
 #Treat
-#DEA_limmaVoom <- function(y, design, contr.matrix=NULL) {
+DEA_limmaVoom <- function(y, design, contr.matrix=NULL) {
   #the voom transformation is applied to the normalized and filtered DGEList object:
   #Use voom() to convert the read counts to log2-cpm, with associated weights, 
   #ready for linear modelling:
@@ -1376,7 +1424,7 @@ colnames(summary(dt))
 
 
 contast_DE_list<-list()
-for (i in colnames(dt)){
+for (i in colnames(dt)[c(1:4,14:17,27:30, 40:43, 53:55)]){
   this_coef<-DEA_MTC_save(fit, i, set_logFC , set_FDR)$tt
   contast_DE_list[[i]]<-this_coef
 }

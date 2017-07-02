@@ -54,8 +54,6 @@ sampleTokeepSE <- PAMNPout$samplesToKeep
 dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
 dim(dataSE) 
 
-##### testing fro male samples D;
-
 
 # exclude mrphology samples Ductal mixed with Others
 removeUnknownOther <- function(dataSE, samples.matrix){
@@ -156,18 +154,18 @@ prop_varex[1:10] # get varinces in percntages
 qplot(data=as.data.frame(pca$x), x=PC1, y=PC2, geom=c("point"), color=samples.matrix$PAM50)
 #PAM50   
 
-dev.off()
+dev.new()
 
-ggplot(data=as.data.frame(pca$x),aes(x=PC4,y=PC2,col=samples.matrix$PAM50))+ 
+ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$PAM50))+ 
   geom_point(size=2.1,alpha=0.9)+ #Size and alpha just for fun
   #scale_colour_brewer(palette = "Set2")+ #your colors 
   scale_colour_manual(values=cbPalette)+
   ggtitle("PCA plot of PAM50 subtypes and normal samples")+
   labs(x="PC1 (11.04%)", y="PC2 (8.63%)")+
-  theme_classic(base_size = 10)+
-  theme(legend.position="bottom",
+  theme_classic(base_size = 12)+
+  theme(#legend.position="bottom",
         legend.title=element_blank(),
-        plot.title = element_text(hjust = 0.5))
+        plot.title = element_text(hjust = 0.1))
 
 #morphology
 ggplot(data=as.data.frame(pca$x),aes(x=PC3,y=PC2,col=samples.matrix$tumourTypes))+ 
@@ -239,10 +237,15 @@ ggplot(p, aes(x=tumourTypes, y=score, fill=tumourTypes)) +
   scale_fill_manual(values=tumourTypCol)+
   ggtitle("1D PCA plot showing varince along PC1-PC9 \nfor morphology groups and normal samples")+
   labs(x="Morphology")+
+  guides(fill=guide_legend(nrow=3))+
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank(),
         legend.title=element_blank(),
+        legend.position="bottom",
         plot.title = element_text(hjust = 0.5))
+
+
+
 
 #tumour stages
 d <- data.frame(samples.matrix, pca$x)
@@ -257,6 +260,7 @@ ggplot(p, aes(x=tumourStages, y=score, fill=tumourStages)) +
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank(),
         legend.title=element_blank(),
+        legend.position="bottom",
         plot.title = element_text(hjust = 0.5))
 
 
@@ -293,7 +297,7 @@ ggplot(p, aes(x=source_site, y=score, fill=source_site)) +
   theme(legend.position="bottom",
         axis.text.x = element_text(angle =0, hjust = 0.5, size=5))+
   guides(fill=guide_legend(nrow=2))+
-  ggtitle("1D PCA plot showing varince along PC1-PC6 \nfor sample source site")+
+  ggtitle("1D PCA plot showing varince along PC1-PC6 \nfor sample source site  (only cancer samples)")+
   labs(x="Sample source site codes")+
   theme(legend.title=element_blank(),
         plot.title = element_text(hjust = 0.5))

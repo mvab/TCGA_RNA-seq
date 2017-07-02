@@ -54,7 +54,7 @@ dim(dataSE)
 dim(samples.matrix)
 
 #get gene lenghts for genes in the analysis : NB this 
-getGeneLenght_out<-getGeneLenght(dataSE)
+getGeneLenght_out<-getGeneLenghtOLD(dataSE)
 gene_lengths<-getGeneLenght_out$gene_lengths
 dataSE<-getGeneLenght_out$dataSE
 dim(dataSE)
@@ -136,7 +136,7 @@ head(stage_averages)
 
 
 
-#### extract data only for autophagy genes
+#### extract data only for autophagy genes (FOR clustering ON AUTOGENES ONLY!!!)
 getAutophagyGenes <- function(dataSE){
   
   autophagy_genes<- as.vector(read.table
@@ -153,6 +153,9 @@ getAutophagyGenes <- function(dataSE){
 dim (stage_averages)
 stage_averages <- getAutophagyGenes(stage_averages)
 dim (stage_averages)
+
+
+
 
 
 
@@ -192,13 +195,10 @@ tmp <- filter.std(exprSet.f,min.std=0.3, visu=FALSE) #genes with lower std will 
 dim(tmp)
 #setdiff(rownames(exprSet.f), rownames(tmp))
 
-setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/")
-autophagy_genes<- as.vector(read.table("autophagic_core.txt", as.is = T, header = FALSE))$V1
-shared <- intersect(autophagy_genes,rownames(tmp))
-print(paste0("Total number of genes in analysis: ", length(rownames(tmp))))
-print(paste0("Autophagy genes: ", length(shared)))
-
-
+#check how much of each autophagy group is left after filtering
+sharedWithAuto(rownames(tmp)) -> x
+sharedWithAutoCORE(rownames(tmp)) ->x
+sharedWithAutoTF(rownames(tmp)) -> x
 
 
 #Since the clustering is performed in Euclidian space, the expression values of 
@@ -224,25 +224,19 @@ m1
 
 
 
-current_test <- "all_genes_all_samples"
-current_test <- "autophagy_genes_all_samples"
-current_test <- "autocore_genes_all_samples"
-current_test <- "transcrfactors_all_samples"
-
-
 #c1 =cselection(exprSet.s, m=m1, crange=seq(4,32,2),repeats=5,visu=TRUE)
 
-setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_for_EA/")
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_reproduced_final/")
 
 # for preview
 cl <- mfuzz(exprSet.s,c=7,m=m1) 
-mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0.6, time.labels=colnames(stage_averages), new.window = T)
+mfuzz.plot(exprSet.s,cl=cl,mfrow=c(2,4),min.mem=0.6, time.labels=colnames(stage_averages), new.window = T)
 
 #for saving
-current_test <- "lumB_genesforDEA"
-pdf(file=paste0(current_test,".pdf"))
-mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0, time.labels=colnames(stage_averages), new.window = F)
-dev.off()
+current_test <- "allgenes_allsamples_7clust"
+#pdf(file=paste0(current_test,".pdf"))
+#mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0, time.labels=colnames(stage_averages), new.window = F)
+#dev.off()
 
 pdf(file=paste0(current_test,"_members_above_0.6_membership.pdf"))
 mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0.6, time.labels=colnames(stage_averages), new.window = F)
@@ -270,8 +264,9 @@ for ( i in 1:dim(summary(cores))[1]){
 #cluster_data
 gene_sum
 
-#clusters don't overlap!
-setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_for_EA/")
+
+
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_reproduced_final/")
 save(cluster_data, file= paste0(current_test, "_cluster_data.rda"))
 
 
@@ -279,7 +274,7 @@ save(cluster_data, file= paste0(current_test, "_cluster_data.rda"))
 ###############################################
 
 #testing loading the data:
-data<-get(load("autophagy_genes_all_samples_cluster_data.rda"))
+data<-get(load("allgenes_allsamples_cluster_data.rda"))
 
 #explore data list (run this loop)
 

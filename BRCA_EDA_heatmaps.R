@@ -18,21 +18,23 @@ source("../functions.R")
 
 ## most recent all types and stages cancer and normal
 dataSE<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedData_wo_batch_GC_010_updatedSE_allTypes_allStages_Female.rda"))
-samplesMatrix<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedData_wo_batch_GC_010_sampleMatrix_allTypes_allStages_Female.rda"))
-dim(samplesMatrix)
+samples.matrix<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_PreprocessedData_wo_batch_GC_010_sampleMatrix_allTypes_allStages_Female.rda"))
+dim(samples.matrix)
 dim(dataSE)
 
 
 #trying cancer only with subtypes (1081)
 #dataSE<-get(load("BRCA_Illumina_HiSeqnew_PreprocessedData_wo_batch_GC_010_updatedSE_allTypes_allStages_Female_cancerOnly_2017-04-02_16-22.rda"))
-#samplesMatrix<-get(load("BRCA_Illumina_HiSeqnew_PreprocessedData_wo_batch_GC_010_sampleMatrix_allTypes_allStages_Female_cancerOnly_2017-04-02_16-23.rda"))
-#dim(samplesMatrix)
+#samples.matrix<-get(load("BRCA_Illumina_HiSeqnew_PreprocessedData_wo_batch_GC_010_sampleMatrix_allTypes_allStages_Female_cancerOnly_2017-04-02_16-23.rda"))
+#dim(samples.matrix)
 #dim(dataSE)
 
 
 
 #### rename morphology
-samplesMatrix<-renameMorph(samplesMatrix)
+samples.matrix<-renameMorph(samples.matrix)
+
+samples.matrix<-addClinData(samples.matrix)
 
 #### extract data only for autophagy genes
 dataSE <- getAutophagyGenes(dataSE)
@@ -41,37 +43,43 @@ dataSE <- getAutophagyGenes(dataSE)
 ##########################
 
 
-
-addClinData<-function(sample.matrix){
-  
-  clindata<-get(load("clinData_prepared.rda"))
-  samples.matrix_clinincal <- merge(sample.matrix, clindata, by="patient", all.x=TRUE) 
-  #samples.matrix_clinincal <- samples.matrix_clinincal[order(samples.matrix_clinincal$myorder), ]
-  
-  return(samples.matrix_clinincal)
-}
-
-# only do this if want to add clinical data
-samplesMatrix<-addClinData(samplesMatrix)
-dim(samplesMatrix)
-head(samplesMatrix)
-dataSE<- dataSE[,c(samplesMatrix$barcode)]
-dim(dataSE)
-
-
-
-
-# if used addPAM50 DO THIS:
-
-#PAMNPout<-addPAM50andNormal(samples.matrix) #514
-PAMNPout<-addXtraPAMandNormal(samplesMatrix)# (807 +104 -39) + 112 = 984
-samplesMatrix<-PAMNPout$samples.matrix 
-dim(samplesMatrix)
+PAMNPout<-addXtraPAMandNormal(samples.matrix)# (807 +104 -39) + 112 = 984
+samples.matrix<-PAMNPout$samples.matrix 
+dim(samples.matrix)
 
 sampleTokeepSE <- PAMNPout$samplesToKeep
 dataSE<- dataSE[,colnames(dataSE) %in% sampleTokeepSE]
 dim(dataSE) 
 
+##### testing fro male samples D;
+
+
+# exclude mrphology samples Ductal mixed with Others
+removeUnknownOther <- function(dataSE, samples.matrix){
+  samples.matrix[samples.matrix$tumourTypes=="Ductual mixed with others",]$barcode -> to_remove
+  to_remove<- as.character(to_remove)
+  
+  samples.matrix<-samples.matrix[!samples.matrix$barcode %in% to_remove,]
+  dim(samples.matrix)
+  dataSE<-dataSE[, !colnames(dataSE) %in% to_remove ]
+  dim(dataSE)
+  
+  return(list(dataSE=dataSE, samples.matrix=samples.matrix))
+}
+removedsamples<-removeUnknownOther(dataSE, samples.matrix)
+dataSE<-removedsamples$dataSE
+samples.matrix<-removedsamples$samples.matrix
+dim(dataSE)
+dim(samples.matrix)
+
+
+
+#for toy example
+keep_subtype<-samples.matrix[samples.matrix$PAM50=="Basal-like" | samples.matrix$PAM50=="Normal",]$barcode
+dataSE<- dataSE[,colnames(dataSE) %in% keep_subtype]
+dim(dataSE)
+samples.matrix<-samples.matrix[samples.matrix$PAM50=="Basal-like" | samples.matrix$PAM50=="Normal",]
+dim(samples.matrix)
 normal <- PAMNPout$normal_barcodes
 
 
@@ -99,39 +107,63 @@ ok_g_functions$genes <-NULL
 ###### patient classes setup #####
 
 #get only interesting cols
-names(samplesMatrix)
-design<-subset(samplesMatrix[,c('tumourTypes','tumourStages','PAM50')])#, 'tss'
-row.names(design)<-samplesMatrix$barcode
+names(samples.matrix)
+design<-subset(samples.matrix[,c('tumourTypes','tumourStages','PAM50', 'tss')])
+row.names(design)<-samples.matrix$barcode
+colnames(design)<-c("Morphology", "Stages", "PAM50", "tss")
 
 #recorder annotations
 design$PAM50 = factor(design$PAM50, levels = c("Basal-like", "HER2-enriched", "Luminal A", "Luminal B", "Normal-like", "Normal"))
-design$tumourStages = factor(design$tumourStages, levels = c("stage1", "stage2", "stage3", "stage4", "unknown")) 
+design$Stages = factor(design$Stages, levels = c("stage1", "stage2", "stage3", "stage4", "unknown")) 
+design$Morphology = factor(design$Morphology,  
+              levels = c("Ductal and lobular mixed","Ductal carcinoma","Lobular carcinoma", 
+                         "Metaplastic carcinoma" ,"Mucinous adenocarcinoma", "Normal",  "Other")) #other is a mix of few samples of different ones
 
-design$tumourTypes = factor(design$tumourTypes,  
-                          levels = c("Normal",  "Mucinous adenocarcinoma", 
-                          "Ductal carcinoma","Lobular carcinoma", "Ductual mixed with others ",
-                          "Ductal and lobular mixed", "Metaplastic carcinoma" ,"Other")) #other is a mix of few samples of different ones
+design$tss = factor(design$tss)
 
 # colours
 PAM50Col <- c( "#E69F00", "#0072B2", "#F0E442","red3", "#CC79A7","#009E73")##D55E00->altred
-#PAM50Col= c( "turquoise4", "darkorange2", "slateblue2", "palevioletred2", "gold2", "olivedrab3")
-
-#prev tumourTypCol = c( "#bebada", "#8dd3c7","#b3de69",  "#fb8072", "#80b1d3", "#fdb462","white")
-tumourTypCol = c("#009E73",  "#0072B2", "#D55E00","#56B4E9","#E69F00","#F0E442","#CC79A7", "white")
-
 tumourStgCol = c( "red","green","blue", "yellow2", "white")
+tumourTypCol = c( "#F0E442", "#56B4E9", "#CC79A7", "#D55E00", "#0072B2", "#009E73", "#E69F00")
+tssCol=c("#fc8785", "#3cb777", "#575a6c", "#c390ec", "#c5eebd",
+                      "#4dc9d5", "#d1f6f2", "#e4f90d", "#5c9134", "#4159e2",
+                      "#f3132d", "#d0abef", "#80eb6e", "#05dda1", "#af7fae",
+                      "#349ad6", "#f2e5a9", "#43a405", "#f05017", "#f655f5",   
+                      "#01e034", "#3f7f56", "#016ecd", "#e2523f", "#b270e4","#d7b51c")
+
 
 names(PAM50Col)<-levels(design$PAM50)
-names(tumourTypCol)<-levels(design$tumourTypes)
-names(tumourStgCol)<-levels(design$tumourStages)
+names(tumourTypCol)<-levels(design$Morphology)
+names(tumourStgCol)<-levels(design$Stages)
+names(tssCol)<-levels(design$tss)
 
 annColour <-list(
   PAM50=PAM50Col,
-  tumourTypes=tumourTypCol,
-  tumourStages=tumourStgCol,
-  gene_functions=thirteen_cols
+  Morphology=tumourTypCol,
+  Stages=tumourStgCol,
+  tss=tssCol
+  #gene_functions=thirteen_cols
 )
 ######
+
+
+
+
+##############   for method!!  ####
+names(samples.matrix)
+design<-as.data.frame(samples.matrix$condition)
+row.names(design)<-samples.matrix$barcode
+colnames(design)<-c("condition")
+
+#recorder annotations
+design$condition = factor(design$condition, levels = c("cancer", "normal"))
+# colours
+tnPalette=c("deeppink2", "dodgerblue2")
+names(tnPalette)<-levels(design$condition)
+annColour <-list(
+  condition=tnPalette
+)
+#######
 
 
 # normalise with log
@@ -181,20 +213,33 @@ length(intersect(pam50,auto_genes))#9
 
 ##################
 
-pheatmap::pheatmap(mat = as.matrix(EM), color = brewer.pal(name = "YlGnBu", n = 9),
-                   #clustering_distance_rows = 'euclidean', 
-                   #clustering_distance_cols = 'euclidean',
+
+#library(scales)
+#show_col(colorspace::heat_hcl(n=9))
+#show_col(colorRampPalette(colorspace::heat_hcl(n=9))(20))
+#colorRampPalette(brewer.pal(9,"Blues"))(20)
+
+
+pheatmap::pheatmap(mat = as.matrix(EM2), color = colorRampPalette(brewer.pal(9,"YlGnBu"))(20),
+#pheatmap::pheatmap(mat = as.matrix(EM2), color = rev(colorRampPalette(colorspace::terrain_hcl(n=9))(20)),
+                   clustering_distance_rows = 'euclidean', 
+                   clustering_distance_cols = 'euclidean',
                    #clustering_distance_rows = 'correlation',
                    #clustering_distance_cols = 'correlation',
-                   clustering_distance_rows = 'manhattan', 
-                   clustering_distance_cols = 'manhattan', 
+                   #clustering_distance_rows = 'manhattan', 
+                   #clustering_distance_cols = 'manhattan', 
                    #scale="row",
                    annotation_col=design,
                    annotation_colors = annColour,
-                   annotation_row=ok_g_functions,
+                   #annotation_row=ok_g_functions,
                    cluster_cols = T, cluster_rows = T, 
                    show_rownames = F,show_colnames = F,
                    fontsize = 5)
+
+
+
+
+
 
 
  #use this not for pheatmap!

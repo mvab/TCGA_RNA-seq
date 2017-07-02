@@ -17,7 +17,7 @@ sharedWithAuto <-function (gene_list){
   shared <- intersect(autophagy_genes,gene_list)
   print(paste0("Total number of genes in the list : ", length(gene_list)))
   print(paste0("Autophagy genes among these: ", length(shared)))
-  return(shared)
+  return(as.vector(unlist(shared)))
   
 }
 sharedWithAutoCORE <-function (gene_list){
@@ -191,7 +191,7 @@ addOnlyTopTSS <- function(samples.matrix){
 }  
 
 
-getGeneLenght<-function(dataSE){
+getGeneLenghtOLD<-function(dataSE){
   
   #removing rows where genes are not found
   remove<-c("100133144", "155060","HLA-DRB1","WBP1")
@@ -226,6 +226,57 @@ getGeneLenght<-function(dataSE){
   #compare!
   shared<-intersect(genes,my_genes)
   #length(shared) #17368
+  
+  
+  #get exon data only for my genes 
+  my_gene_exons<-gene_exons[gene_exons$gene_name %in% shared, ]
+  #length(unique(my_gene_exons$gene_name))
+  
+  # col width already has each exon length
+  gene_lengths<-aggregate(. ~ gene_name, data=my_gene_exons[,c("gene_name", "width")], FUN=sum)
+  #dim(gene_lengths)
+  colnames(gene_lengths)[2]<-c("gene_length")
+  #head(gene_lengths)
+  
+  
+  #reorder to match order in dataSE
+  my_order<-cbind(rownames(dataSE), matrix(0,ncol=1,nrow=length(rownames(dataSE))))
+  #head(my_order)
+  
+  for (i in 1:nrow(my_order)){
+    g<-as.character(my_order[i,1])
+    my_order[i,2]<-as.numeric(gene_lengths[gene_lengths$gene_name==g,]$gene_length)
+  }
+  gene_lengths_ordered<-as.data.frame(my_order)
+  colnames(gene_lengths_ordered)<- c("gene_name", "gene_length")
+  #head(gene_lengths_ordered)
+  
+  return(list(dataSE=dataSE, gene_lengths=gene_lengths_ordered))
+}
+
+getGeneLenghtNEW<-function(dataSE){
+  
+  my_genes<-rownames(dataSE)
+  #length(my_genes)# 17366
+  # my_genes[duplicated(my_genes) ]
+  # [1] "SLC35E2"  is duplicated
+  
+  # so remove duplicate
+  my_genes<-my_genes[!duplicated(my_genes) ]
+  dataSE<-dataSE[!duplicated(rownames(dataSE)), ]
+  
+  
+  load("TCGAgeneExons.Rdata") #in /data
+  gene_exons<-as.data.frame(geneExons)
+  dim(gene_exons)
+  colnames(gene_exons)
+  
+  genes<-unique(gene_exons$gene_name)
+  #length(genes) #25508
+  
+  #compare!
+  shared<-intersect(genes,my_genes)
+  #length(shared) #17365
   
   
   #get exon data only for my genes 

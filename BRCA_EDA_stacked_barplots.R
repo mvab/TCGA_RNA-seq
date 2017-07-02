@@ -30,6 +30,9 @@ dim(samples.matrix)
 
 head(samples.matrix)
 
+# exclude mrphology samples Ductal mixed with Others
+samples.matrix<-samples.matrix[samples.matrix$tumourTypes!="Ductual mixed with others",]
+
 
 
 #### exploring data with stacked barplots 
@@ -56,9 +59,11 @@ ggplot(DF1, aes(x =tss, y = n, fill = PAM50)) +
   geom_bar(stat = "identity")+
   scale_fill_manual(values=cbPalette)+
   ylab("Count") + xlab("Sample Source Site")+
+  ggtitle("Stacked barplot showing count of each PAM50 subtype \n collected at each sample source site")+
   scale_y_continuous(expand = c(0, 0),breaks = seq(from = 0, by =25, to =250))+
   theme_classic()+
-  theme(legend.position="bottom")
+  theme(legend.position="bottom",
+      plot.title = element_text(hjust = 0.5))
 
 
 #### YEAR
@@ -79,10 +84,12 @@ ggplot(DF2, aes(x =year_diagnosed, y = n, fill = PAM50)) +
   scale_fill_manual(values=cbPalette)+
   theme_classic()+
   ylab("Count") + xlab("Year sample collected")+
+  ggtitle("Stacked barplot showing count of each PAM50 subtype \n collected in different years")+
   scale_y_continuous(expand = c(0, 0),breaks = seq(from = 0, by =25, to =250))+
   theme_classic()+
   theme(legend.position="bottom",
-        axis.text.x = element_text(angle = 90, hjust = 1))
+        axis.text.x = element_text(angle = 90, hjust = 1),
+        plot.title = element_text(hjust = 0.5))
 
 
 
@@ -104,10 +111,12 @@ ggplot(DF3, aes(x =ageGroups, y = n, fill = PAM50)) +
   scale_fill_manual(values=cbPalette)+
   theme_classic()+
   ylab("Count") + xlab("Diagnosed at age")+
+  ggtitle("Stacked barplot showing count of each \n PAM50 subtype  collected in patient age groups")+
   scale_y_continuous(expand = c(0, 0),breaks = seq(from = 0, by =25, to =300))+
   theme_classic()+
   theme(legend.position="bottom",
-        axis.text.x = element_text(angle = 90, hjust = 1))
+        axis.text.x = element_text(angle = 90, hjust = 1),
+        plot.title = element_text(hjust = 0.5))
 
 
 
@@ -130,9 +139,11 @@ ggplot(DF4, aes(x =tumourStages, y = n, fill = PAM50)) +
   scale_fill_manual(values=cbPalette)+
   theme_classic()+
   ylab("Count") + xlab("Stage")+
+  ggtitle("Stacked barplot showing count of each \n PAM50 subtype in different cancer stages")+
   scale_y_continuous(expand = c(0, 0),breaks = seq(from = 0, by =50, to =1000))+
   theme(legend.position="bottom",
-        axis.text.x = element_text(angle = 90, hjust = 1))
+        axis.text.x = element_text(angle = 45, hjust = 1),
+        plot.title = element_text(hjust = 0.5))
 
 #or
 c <- ggplot(DF4, aes(x = tumourStages, y = variable))
@@ -160,9 +171,11 @@ ggplot(DF5, aes(x =tumourTypes, y = n, fill = PAM50)) +
   scale_fill_manual(values=cbPalette)+
   theme_classic()+
   ylab("Count") + xlab("Morphology")+
+  ggtitle("Stacked barplot showing count of each \n PAM50 subtype in different morphology groups")+
   scale_y_continuous(expand = c(0, 0),breaks = seq(from = 0, by =50, to =1000))+
   theme(legend.position="right",
-        axis.text.x = element_text(angle = 35, hjust = 1))
+        axis.text.x = element_text(angle = 35, hjust = 1),
+        plot.title = element_text(hjust = 0.9))
 
 #or
 c <- ggplot(DF5, aes(x = tumourTypes, y = variable))
