@@ -116,7 +116,7 @@ rownames(dge)<-dge$genes$entrez # by keeping genes with entrezid you get: 15579/
 
 #how many genes have at least 50 samples with 0 expression
 #Keep genes with total counts more than 50.
-cpm <- cpm(dge, log=FALSE)
+cpm <- cpm(dge, log=FALSE) 
 #keep.exprs <- rowSums(cpm > 1) >= 50        #A CPM value of 1 is equivalent to a log-CPM value of 0.
 keep.exprs <- rowSums(cpm > 2) >= 19
 dge <- dge[keep.exprs,, keep.lib.sizes=FALSE]
@@ -198,7 +198,7 @@ dge<-addSampleData(dge,samples.matrix)
 # Scale normalisation: correct for library size
 #to match the between-sample distributions of gene counts
 #in terms of parameters such as quantiles
-y <- calcNormFactors(dge)
+y <- calcNormFactors(dge) #default is TMM
 
 
 #trying MDS condition 

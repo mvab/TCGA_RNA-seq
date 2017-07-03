@@ -3,10 +3,11 @@ source("../../functions.R")
 # putting mfuzz cluster results into format for Enrichment analysis
 
 
+class <-"group1_allsamples_9clust"
+class <-"group1_allsamples_8clust"
 
-
-class<-"allgenes_allsamples_9clust"
-class<-"allgenes_allsamples_7clust"
+class<-"group1_NormLike_8clust"
+class<- "group1_allsamples_ductalONLY_8clust"
 
 #loading the data, e.g.
 data<-get(load(paste0(class, "_cluster_data.rda")))
@@ -22,39 +23,41 @@ for ( i in names(data)){
 gene_sum
 ##
 
-#create a df to hold DE genes counts 
-genesDEdf<-data.frame(matrix( NA,  nrow = length(names(data)), ncol = 1))
-rownames(genesDEdf)<-names(data)
-colnames(genesDEdf)<-c("genes")
-head(genesDEdf)
 
+##### create placeholders####
 
-#create a df to hold DE AUTOPHAGY genes counts 
-genesDE_AUTOdf<-data.frame(matrix( NA,  nrow = length(names(data)), ncol = 1))
-rownames(genesDE_AUTOdf)<-names(data)
-colnames(genesDE_AUTOdf)<-c("genes")
-head(genesDE_AUTOdf)
-
-
-#create a df to hold DE AUTOPHAGY CORE genes counts 
-genesDE_AUTOCOREdf<-data.frame(matrix( NA,  nrow = length(names(data)), ncol = 1))
-rownames(genesDE_AUTOCOREdf)<-names(data)
-colnames(genesDE_AUTOCOREdf)<-c("genes")
-
-head(genesDE_AUTOCOREdf)
-
-#create a df to hold DE AUTOPHAGY CORE genes counts 
-genesDE_AUTOTFdf<-data.frame(matrix( NA,  nrow = length(names(data)), ncol = 1))
-rownames(genesDE_AUTOTFdf)<-names(data)
-colnames(genesDE_AUTOTFdf)<-c("genes")
-head(genesDE_AUTOTFdf)
-
-
-all_genes <- c() # for reference, count how many genes were DE in all comparisons
-autophagy_genes <- c()
-autophagyCORE_genes <- c()
-autophagyTF_genes <- c()
-
+    #create a df to hold DE genes counts 
+    genesDEdf<-data.frame(matrix( NA,  nrow = length(names(data)), ncol = 1))
+    rownames(genesDEdf)<-names(data)
+    colnames(genesDEdf)<-c("genes")
+    print(genesDEdf)
+    
+    
+    #create a df to hold DE AUTOPHAGY genes counts 
+    genesDE_AUTOdf<-data.frame(matrix( NA,  nrow = length(names(data)), ncol = 1))
+    rownames(genesDE_AUTOdf)<-names(data)
+    colnames(genesDE_AUTOdf)<-c("genes")
+    print(genesDE_AUTOdf)
+    
+    
+    #create a df to hold DE AUTOPHAGY CORE genes counts 
+    genesDE_AUTOCOREdf<-data.frame(matrix( NA,  nrow = length(names(data)), ncol = 1))
+    rownames(genesDE_AUTOCOREdf)<-names(data)
+    colnames(genesDE_AUTOCOREdf)<-c("genes")
+    print(genesDE_AUTOCOREdf)
+    
+    #create a df to hold DE AUTOPHAGY TF genes counts 
+    genesDE_AUTOTFdf<-data.frame(matrix( NA,  nrow = length(names(data)), ncol = 1))
+    rownames(genesDE_AUTOTFdf)<-names(data)
+    colnames(genesDE_AUTOTFdf)<-c("genes")
+    print(genesDE_AUTOTFdf)
+    
+    
+    all_genes <- c() # for reference, count how many genes were DE in all comparisons
+    autophagy_genes <- c()
+    autophagyCORE_genes <- c()
+    autophagyTF_genes <- c()
+#####
 
 setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data")
 
@@ -102,7 +105,7 @@ autoALL_DEgenes<- get(load(paste0(class, "_DE_AUTO_genes_numbers3.rda")))
 autoCORE_DEgenes<- get(load(paste0(class, "_DE_AUTOCORE_genes_numbers3.rda")))
 autoTF_DEgenes<- get(load(paste0(class, "_DE_AUTOTF_genes_numbers3.rda")))
 
-N <- 12985 ##### THIS WILL CHANGE
+N <- 10035 #12985 ##### THIS WILL CHANGE
 
 # add columns for enrichment, p.val, p.val.adj in autophagy df
 extra_colnames<-c("oddsratio", 
@@ -142,25 +145,25 @@ fisher_test<-function(DEgenes,DEgenes_group,N,K){
 #ALL
 autoALL_DEgenes<-cbind(autoALL_DEgenes,matrix(data=NA, nrow=nrow(autoALL_DEgenes), ncol=3))
 names(autoALL_DEgenes)[2:4]<-extra_colnames
-K <- 1001 #1028#595#980#595#224#1090 #1035#198#535 #1001 # The number of gene belonging to a gene famility---- AUTOPHAGY ALL
+K <- 595 #1001 # # The number of gene belonging to a gene famility---- AUTOPHAGY ALL
 autoALL_DEgenes<-fisher_test(DEgenes,autoALL_DEgenes,N,K);autoALL_DEgenes
 
 #CORE
 autoCORE_DEgenes<-cbind(autoCORE_DEgenes,matrix(data=NA, nrow=nrow(autoCORE_DEgenes), ncol=3))
 names(autoCORE_DEgenes)[2:4]<-extra_colnames
-K <-145 #68#142#39#68#20#155 #150#16#63# 145 # The number of gene belonging to a gene famility---- AUTOPHAGY CORE
+K <-68#145 # # The number of gene belonging to a gene famility---- AUTOPHAGY CORE
 autoCORE_DEgenes<-fisher_test(DEgenes,autoCORE_DEgenes,N,K);autoCORE_DEgenes
 
 
 #TF
 autoTF_DEgenes<-cbind(autoTF_DEgenes,matrix(data=NA, nrow=nrow(autoTF_DEgenes), ncol=3))
 names(autoTF_DEgenes)[2:4]<-extra_colnames
-K <- 85 #57#82##33#97 #89#27#47#85 # The number of gene belonging to a gene famility---- AUTOPHAGY TF
+K <- 57#85 # The number of gene belonging to a gene famility---- AUTOPHAGY TF
 autoTF_DEgenes<-fisher_test(DEgenes,autoTF_DEgenes,N,K);autoTF_DEgenes
 
 autoALL_DEgenes
 autoCORE_DEgenes
 autoTF_DEgenes
 
-write( sharedWithAuto(data$cluster4) , file = "229_allgenes_allsamples_autophagy_down_cluster.txt", sep="\n")
+write( sharedWithAuto(data$clusterx) , file = "135_group1_allsamples_Ductal_autophagy_down_cluster.txt", sep="\n")
 

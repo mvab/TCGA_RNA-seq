@@ -65,16 +65,16 @@ dge <- DGEList(counts=dataSE, genes = data.frame(Length= as.numeric(gene_lengths
 #head(dge$genes)
 
 #### RPKM
-yr <- calcNormFactors(dge)
+yr <- calcNormFactors(dge) #default is TMM
 # rpkm will use the normalized effective library sizes to compute rpkm instead of the raw library sizes. 
 RPKM <- rpkm(yr)
 dim(RPKM) #17368   984 matrix
 
 ## load gene list that you want to be in the analysis
-genelist<-get(load("genes_for_DEA.rda"))
-genelist<-get(load("stages_DE_genes.rda"))
+#genelist<-get(load("genes_for_DEA.rda"))
+#genelist<-get(load("stages_DE_genes.rda"))
 genelist<-get(load("group1_DE_genes.rda"))
-genelist<-get(load("pam50_DE_genes.rda"))
+#genelist<-get(load("pam50_DE_genes.rda"))
 
 length(genelist)
 RPKM<- RPKM[rownames(RPKM) %in% genelist, ]
@@ -89,12 +89,13 @@ dim(RPKM)
 ##### if want to look at specific subtype
 
 
-keep_subtype<-samples.matrix[samples.matrix$PAM50=="Basal-like" & samples.matrix$morphology=="Ductal carcinoma" | samples.matrix$PAM50=="Normal",]$barcode
+#keep_subtype<-samples.matrix[samples.matrix$PAM50=="Basal-like" & samples.matrix$tumourTypes=="Ductal carcinoma" | samples.matrix$PAM50=="Normal",]$barcode
+keep_subtype<-samples.matrix[samples.matrix$tumourTypes=="Ductal carcinoma" | samples.matrix$PAM50=="Normal",]$barcode
 RPKM<- RPKM[,colnames(RPKM) %in% keep_subtype]
 dim(RPKM)
 
 
-keep_subtype<-samples.matrix[samples.matrix$PAM50=="Luminal B" | samples.matrix$PAM50=="Normal",]$barcode
+keep_subtype<-samples.matrix[samples.matrix$PAM50=="Normal-like" | samples.matrix$PAM50=="Normal",]$barcode
 RPKM<- RPKM[,colnames(RPKM) %in% keep_subtype]
 dim(RPKM)
 
@@ -108,19 +109,19 @@ dim(RPKM)
 
 # create a rpkm matrix that has a column per 'time point', i.e. stage
 getAverageExpSampleSet<- function(dataSE, set){
-  
-  #get list of samples for this set
-  set_samples<-samples.matrix[samples.matrix$tumourStages==set,]$barcode
-  
-  #get their exp vals
-  dataSE<- dataSE[,colnames(dataSE) %in% set_samples]
-  print(paste0(set, " has ", dim(dataSE)[2], " samples."))
-  
-  #caclulate average expression 
-  rpkm_set_mean <- as.matrix(rowMeans(dataSE))
-  colnames(rpkm_set_mean) <- set
-  
-  return(rpkm_set_mean)
+
+#get list of samples for this set
+set_samples<-samples.matrix[samples.matrix$tumourStages==set,]$barcode
+
+#get their exp vals
+dataSE<- dataSE[,colnames(dataSE) %in% set_samples]
+print(paste0(set, " has ", dim(dataSE)[2], " samples."))
+
+#caclulate average expression 
+rpkm_set_mean <- as.matrix(rowMeans(dataSE))
+colnames(rpkm_set_mean) <- set
+
+return(rpkm_set_mean)
 }
 
 
@@ -130,8 +131,8 @@ colnames(stage_averages)<-c('Normal', 'stage1','stage2','stage3','stage4')
 rownames(stage_averages)<- rownames(RPKM)
 
 for (i in colnames(stage_averages)){
-  this_average<-getAverageExpSampleSet(RPKM, i)
-  stage_averages[,i]<- this_average}
+this_average<-getAverageExpSampleSet(RPKM, i)
+stage_averages[,i]<- this_average}
 head(stage_averages)
 
 
@@ -151,7 +152,7 @@ getAutophagyGenes <- function(dataSE){
   return(newdataSE)
 } 
 dim (stage_averages)
-stage_averages <- getAutophagyGenes(stage_averages)
+#stage_averages <- getAutophagyGenes(stage_averages)
 dim (stage_averages)
 
 
@@ -190,7 +191,7 @@ exprSet.f <- fill.NA(exprSet.r,mode="mean")
 #Calculation the standard deviation shows, however,
 #that the transition between low and high values for variation in 
 #gene expression is smooth and no particular cut-off point is indicated 
-tmp <- filter.std(exprSet.f,min.std=0.3, visu=FALSE) #genes with lower std will be excluded
+tmp <- filter.std(exprSet.f,min.std=0.0, visu=FALSE) #genes with lower std will be excluded
 
 dim(tmp)
 #setdiff(rownames(exprSet.f), rownames(tmp))
@@ -229,11 +230,12 @@ m1
 setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_reproduced_final/")
 
 # for preview
-cl <- mfuzz(exprSet.s,c=7,m=m1) 
+cl <- mfuzz(exprSet.s,c=8,m=m1) 
 mfuzz.plot(exprSet.s,cl=cl,mfrow=c(2,4),min.mem=0.6, time.labels=colnames(stage_averages), new.window = T)
 
 #for saving
-current_test <- "allgenes_allsamples_7clust"
+current_test <- "group1_allsamples_8clust"
+#current_test <- "group1_allsamples_8clust"
 #pdf(file=paste0(current_test,".pdf"))
 #mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0, time.labels=colnames(stage_averages), new.window = F)
 #dev.off()
