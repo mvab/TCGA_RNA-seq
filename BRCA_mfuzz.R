@@ -11,11 +11,6 @@ samples.matrix<-get(load("BRCA_Illumina_HiSeqnew_updatedSE_allFemale_Preprocesse
 dim(samples.matrix)
 dim(dataSE)
 
-#trying cancer only with subtypes (1081)
-#dataSE<-get(load("BRCA_Illumina_HiSeqnew_PreprocessedData_wo_batch_GC_010_updatedSE_allTypes_allStages_Female_cancerOnly_2017-04-02_16-22.rda"))
-#samples.matrix<-get(load("BRCA_Illumina_HiSeqnew_PreprocessedData_wo_batch_GC_010_sampleMatrix_allTypes_allStages_Female_cancerOnly_2017-04-02_16-23.rda"))
-#dim(samples.matrix)
-#dim(dataSE)
 
 
 #### rename morphology
@@ -25,7 +20,7 @@ samples.matrix<-renameMorph(samples.matrix)
 samples.matrix<-addClinData(samples.matrix)
 
 # only PAM50 samples 
-PAMNPout<-addXtraPAMandNormal(samples.matrix)# (807 +104 -39) + 112 = 984
+PAMNPout<-addXtraPAMandNormal(samples.matrix)# 
 samples.matrix<-PAMNPout$samples.matrix 
 #save(samples.matrix, file="samplesMatrix_full.rda")
 dim(samples.matrix)
@@ -63,22 +58,82 @@ dim(gene_lengths)
 # edgeR object
 dge <- DGEList(counts=dataSE, genes = data.frame(Length= as.numeric(gene_lengths$gene_length)) ) #here will be adding genes: genes = Ann)
 #head(dge$genes)
+addSampleData<-function(y, samples.matrix) {
+  
+  # adding samples information
+  #y$samples$condition <- as.factor(samples.matrix$condition)
+  y$samples$PAM50 <- as.factor(samples.matrix$PAM50)
+  y$samples$morphology <- as.factor(samples.matrix$tumourTypes) # from sample lists!
+  y$samples$stages <- as.factor(samples.matrix$tumourStages) # from sample lists!
+  y$samples$year <- as.factor(samples.matrix$year_diagnosed)
+  y$samples$tss <- factor(samples.matrix$tss)
+  y$samples$age <- as.factor(samples.matrix$ageGroups)
+  
+  
+  #fixing NAs
+  y$samples$age <- as.character(y$samples$age)
+  y$samples[is.na(y$samples$age),]$age<-"UnknownAge"
+  y$samples[y$samples$age=="70+",]$age<-"70andUp"
+  y$samples[y$samples$age=="< 40",]$age<-"40andDown"
+  y$samples$age <- as.factor(y$samples$age)
+  
+  y$samples$year <- as.character(y$samples$year)
+  y$samples[is.na(y$samples$year),]$year<-"UnknownYear"
+  y$samples$year <- as.factor(y$samples$year)
+  
+  
+  #stage + PAM50
+  y$samples$Group1 <- factor(paste( gsub(" ", "", samples.matrix$PAM50) , samples.matrix$tumourStages,sep="."))
+  #morphology +stage
+  y$samples$Group2 <- factor(paste( gsub(" ", "", samples.matrix$tumourTypes) , samples.matrix$tumourStages,sep="."))
+  #pam50+morphology
+  y$samples$Group3 <- factor(paste( gsub(" ", "", samples.matrix$PAM50) , samples.matrix$tumourTypes,sep="."))
+  #pam50+age
+  y$samples$Group4 <- factor(paste( gsub(" ", "", samples.matrix$PAM50) , y$samples$age,sep="."))
+  
+  
+  
+  ## making normal the baselayer
+  #y$samples$condition = relevel(y$samples$condition, ref="normal")
+  y$samples$PAM50 = relevel(y$samples$PAM50, ref="Normal")
+  y$samples$morphology = relevel(y$samples$morphology, ref="Normal")
+  y$samples$stages = relevel(y$samples$stages, ref="Normal")
+  y$samples$age = relevel(y$samples$age, ref="40andDown") ###########--> should i make one for normal??
+  y$samples$Group1 = relevel(y$samples$Group1, ref = "Normal.Normal")
+  y$samples$Group2 = relevel(y$samples$Group2, ref = "Normal.Normal")
+  y$samples$Group3 = relevel(y$samples$Group3, ref = "Normal.Normal")
+  
+  return (y)
+}
+dge<-addSampleData(dge,samples.matrix)
+
+
+## load gene list that you want to be in the analysis
+genelist<-get(load("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/genes_for_DEA.rda"))
+#genelist<-get(load("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/group1_DE_genes.rda"))
+
+length(genelist)
+dge<- dge[rownames(dge) %in% genelist, ]
+dim(dge) 
+
 
 #### RPKM
 yr <- calcNormFactors(dge) #default is TMM
 # rpkm will use the normalized effective library sizes to compute rpkm instead of the raw library sizes. 
-RPKM <- rpkm(yr)
-dim(RPKM) #17368   984 matrix
 
-## load gene list that you want to be in the analysis
-#genelist<-get(load("genes_for_DEA.rda"))
-#genelist<-get(load("stages_DE_genes.rda"))
-genelist<-get(load("group1_DE_genes.rda"))
-#genelist<-get(load("pam50_DE_genes.rda"))
+# 1) NON log
+#RPKM <- rpkm(yr)
 
-length(genelist)
-RPKM<- RPKM[rownames(RPKM) %in% genelist, ]
-dim(RPKM) 
+# 2) as log
+RPKM <- rpkm(yr, log=TRUE, prior.count = 1)
+
+# 2+3)as log + batch corrected
+design <- model.matrix(~0+Group1, data=yr$samples)
+RPKM <- removeBatchEffect(RPKM, batch=yr$samples$tss, batch2=yr$samples$year, design=design)
+
+dim(RPKM) #15784   969 matrix
+
+
 
 
 #autophagy_genes<- as.vector(read.table("transcription_factors.txt", as.is = T, header = FALSE))$V1
@@ -88,14 +143,13 @@ dim(RPKM)
 
 ##### if want to look at specific subtype
 
-
 #keep_subtype<-samples.matrix[samples.matrix$PAM50=="Basal-like" & samples.matrix$tumourTypes=="Ductal carcinoma" | samples.matrix$PAM50=="Normal",]$barcode
-keep_subtype<-samples.matrix[samples.matrix$tumourTypes=="Ductal carcinoma" | samples.matrix$PAM50=="Normal",]$barcode
-RPKM<- RPKM[,colnames(RPKM) %in% keep_subtype]
-dim(RPKM)
+#keep_subtype<-samples.matrix[samples.matrix$tumourTypes=="Ductal carcinoma" | samples.matrix$PAM50=="Normal",]$barcode
+#RPKM<- RPKM[,colnames(RPKM) %in% keep_subtype]
+#dim(RPKM)
 
 
-keep_subtype<-samples.matrix[samples.matrix$PAM50=="Normal-like" | samples.matrix$PAM50=="Normal",]$barcode
+keep_subtype<-samples.matrix[samples.matrix$PAM50=="Luminal A" | samples.matrix$PAM50=="Normal",]$barcode
 RPKM<- RPKM[,colnames(RPKM) %in% keep_subtype]
 dim(RPKM)
 
@@ -110,18 +164,18 @@ dim(RPKM)
 # create a rpkm matrix that has a column per 'time point', i.e. stage
 getAverageExpSampleSet<- function(dataSE, set){
 
-#get list of samples for this set
-set_samples<-samples.matrix[samples.matrix$tumourStages==set,]$barcode
-
-#get their exp vals
-dataSE<- dataSE[,colnames(dataSE) %in% set_samples]
-print(paste0(set, " has ", dim(dataSE)[2], " samples."))
-
-#caclulate average expression 
-rpkm_set_mean <- as.matrix(rowMeans(dataSE))
-colnames(rpkm_set_mean) <- set
-
-return(rpkm_set_mean)
+    #get list of samples for this set
+    set_samples<-samples.matrix[samples.matrix$tumourStages==set,]$barcode
+    
+    #get their exp vals
+    dataSE<- dataSE[,colnames(dataSE) %in% set_samples]
+    print(paste0(set, " has ", dim(dataSE)[2], " samples."))
+    
+    #caclulate average expression 
+    rpkm_set_mean <- as.matrix(rowMeans(dataSE))
+    colnames(rpkm_set_mean) <- set
+    
+    return(rpkm_set_mean)
 }
 
 
@@ -141,7 +195,7 @@ head(stage_averages)
 getAutophagyGenes <- function(dataSE){
   
   autophagy_genes<- as.vector(read.table
-    ("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/autophagic_core.txt", as.is = T, header = FALSE))$V1
+    ("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/autopahagy_genes.txt", as.is = T, header = FALSE))$V1
   all_genes<-rownames(dataSE)
   shared <- intersect(autophagy_genes,all_genes)
   newdataSE<- dataSE[c(shared),]
@@ -152,7 +206,7 @@ getAutophagyGenes <- function(dataSE){
   return(newdataSE)
 } 
 dim (stage_averages)
-#stage_averages <- getAutophagyGenes(stage_averages)
+stage_averages <- getAutophagyGenes(stage_averages)
 dim (stage_averages)
 
 
@@ -191,7 +245,7 @@ exprSet.f <- fill.NA(exprSet.r,mode="mean")
 #Calculation the standard deviation shows, however,
 #that the transition between low and high values for variation in 
 #gene expression is smooth and no particular cut-off point is indicated 
-tmp <- filter.std(exprSet.f,min.std=0.0, visu=FALSE) #genes with lower std will be excluded
+tmp <- filter.std(exprSet.f,min.std=0.0, visu=F) #genes with lower std will be excluded
 
 dim(tmp)
 #setdiff(rownames(exprSet.f), rownames(tmp))
@@ -223,26 +277,29 @@ dim(exprSet.s)
 m1=mestimate(exprSet.s) 
 m1
 
-
+############
 
 #c1 =cselection(exprSet.s, m=m1, crange=seq(4,32,2),repeats=5,visu=TRUE)
 
-setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_reproduced_final/")
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_reproduced_final/final_for_report/")
 
 # for preview
-cl <- mfuzz(exprSet.s,c=8,m=m1) 
-mfuzz.plot(exprSet.s,cl=cl,mfrow=c(2,4),min.mem=0.6, time.labels=colnames(stage_averages), new.window = T)
+cl <- mfuzz(exprSet.s,c=6,m=m1) 
+mfuzz.plot2(exprSet.s,cl=cl,mfrow=c(2,3),min.mem=0.6, cex.axis=0.9, time.labels=colnames(stage_averages), new.window = T)
+mfuzz.plot2(exprSet.s,cl=cl,mfrow=c(1,1),min.mem=0.6, cex.axis=0.9, time.labels=colnames(stage_averages), new.window = T, single=4)
 
+#mfuzzColorBar(main="Membership\nvalue",cex.main=1)
 #for saving
-current_test <- "group1_allsamples_8clust"
-#current_test <- "group1_allsamples_8clust"
+
+current_test <- "rpkm_log_15k_6_lumA"
+
 #pdf(file=paste0(current_test,".pdf"))
 #mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0, time.labels=colnames(stage_averages), new.window = F)
 #dev.off()
 
-pdf(file=paste0(current_test,"_members_above_0.6_membership.pdf"))
-mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0.6, time.labels=colnames(stage_averages), new.window = F)
-dev.off()
+#pdf(file=paste0(current_test,"_members_above_0.6_membership.pdf"))
+#mfuzz.plot(exprSet.s,cl=cl,mfrow=c(3,3),min.mem=0.6, time.labels=colnames(stage_averages), new.window = F)
+#dev.off()
 #par(mfrow=c(1,1))
 #O <- overlap(cl) 
 #ov.tmp <- overlap.plot(cl,over=O,thres=0.05)
@@ -268,7 +325,7 @@ gene_sum
 
 
 
-setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_reproduced_final/")
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_reproduced_final/final_for_report/")
 save(cluster_data, file= paste0(current_test, "_cluster_data.rda"))
 
 

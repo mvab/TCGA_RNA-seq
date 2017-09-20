@@ -16,7 +16,7 @@ autoALL_DEgenes<- get(load(paste0(class, "_DE_AUTO_genes_numbers3.rda")))
 autoCORE_DEgenes<- get(load(paste0(class, "_DE_AUTOCORE_genes_numbers3.rda")))
 autoTF_DEgenes<- get(load(paste0(class, "_DE_AUTOTF_genes_numbers3.rda")))
 
-N <- 15784 # The total number of genes :17372 ##### THIS WILL CHANGE
+N <- 15784 # The total number of genes
 
 # add columns for enrichment, p.val, p.val.adj in autophagy df
 extra_colnames<-c("up_oddsratio", "down_oddsratio", "both_oddsratio",
@@ -83,28 +83,32 @@ autoTF_DEgenes<-fisher_test(DEgenes,autoTF_DEgenes,N,K)
 
 # saving data for easy Viewing 
 
-save(autoALL_DEgenes, file=paste0("EA_", class, "_All_autophagy.rda"))
-save(autoCORE_DEgenes, file=paste0("EA_", class, "_Core_autophagy.rda"))
-save(autoTF_DEgenes, file=paste0("EA_", class, "_TF_autophagy.rda"))
+save(autoALL_DEgenes, file=paste0("EA_", class, "_All_autophagy3.rda"))
+save(autoCORE_DEgenes, file=paste0("EA_", class, "_Core_autophagy3.rda"))
+save(autoTF_DEgenes, file=paste0("EA_", class, "_TF_autophagy3.rda"))
 
-all<-get(load(paste0("EA_", class, "_All_autophagy.rda")))
-core<-get(load(paste0("EA_", class, "_Core_autophagy.rda")))
-tf<-get(load(paste0("EA_", class, "_TF_autophagy.rda")))
+all<-get(load(paste0("EA_", class, "_All_autophagy3.rda")))
+core<-get(load(paste0("EA_", class, "_Core_autophagy3.rda")))
+tf<-get(load(paste0("EA_", class, "_TF_autophagy3.rda")))
 
 #View(all)
 #View(core)
 #View(tf)
 
-getEnrichedAndSignificant<- function(my_table){
+getEnrichedAndSignificant<- function(my_table, adj=TRUE){
   
+  
+  if (adj==TRUE){
   #by p.adj
-  #table_up <- my_table[,c(1,4,10)]
-  #table_down <- my_table[,c(2,5,11)]
-  #table_both <- my_table[,c(3,6,12)]
-  #out_up<- table_up[table_up$up_oddsratio >=1 & table_up$up_pval.adj <=0.05,]
-  #out_down<- table_down[table_down$down_oddsratio >=1 & table_down$down_pval.adj <=0.05,]
-  #out_both<- table_both[table_both$both_oddsratio >=1 & table_both$both_pval.adj <=0.05,]
+  table_up <- my_table[,c(1,4,10)]
+  table_down <- my_table[,c(2,5,11)]
+  table_both <- my_table[,c(3,6,12)]
+  out_up<- table_up[table_up$up_oddsratio >=1 & table_up$up_pval.adj <=0.05,]
+  out_down<- table_down[table_down$down_oddsratio >=1 & table_down$down_pval.adj <=0.05,]
+  out_both<- table_both[table_both$both_oddsratio >=1 & table_both$both_pval.adj <=0.05,]
   
+  } else{  #adj ==FALSE
+    
   #by just pval
   table_up <- my_table[,c(1,4,7)]
   table_down <- my_table[,c(2,5,8)]
@@ -112,15 +116,21 @@ getEnrichedAndSignificant<- function(my_table){
   out_up<- table_up[table_up$up_oddsratio >=1 & table_up$up_pval <=0.05,]
   out_down<- table_down[table_down$down_oddsratio >=1 & table_down$down_pval <=0.05,]
   out_both<- table_both[table_both$both_oddsratio >=1 & table_both$both_pval <=0.05,]  
-  
+  }
   
   
   return(list(up = out_up, down = out_down, both = out_both))
   
 }
+#with adj p.val
 print(getEnrichedAndSignificant(all))
 print(getEnrichedAndSignificant(core))
 print(getEnrichedAndSignificant(tf))
+
+#with reg p.val
+print(getEnrichedAndSignificant(all, adj =FALSE))
+print(getEnrichedAndSignificant(core,adj =FALSE))
+print(getEnrichedAndSignificant(tf,adj =FALSE))
 
 
 

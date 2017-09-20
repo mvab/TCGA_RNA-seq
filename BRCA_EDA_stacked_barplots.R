@@ -54,16 +54,17 @@ DF1 <- set1 %>%
   summarise(n = n())
 
 head(DF1)
-
+dev.new()
 ggplot(DF1, aes(x =tss, y = n, fill = PAM50)) + 
   geom_bar(stat = "identity")+
   scale_fill_manual(values=cbPalette)+
   ylab("Count") + xlab("Sample Source Site")+
-  ggtitle("Stacked barplot showing count of each PAM50 subtype \n collected at each sample source site")+
+  ggtitle("Stacked barplots of sample counts per source site")+
   scale_y_continuous(expand = c(0, 0),breaks = seq(from = 0, by =25, to =250))+
   theme_classic()+
   theme(legend.position="bottom",
-      plot.title = element_text(hjust = 0.5))
+      plot.title = element_text(hjust = 0.5),
+      text=element_text(size=14,  family="serif"))
 
 
 #### YEAR
@@ -78,18 +79,19 @@ DF2 <- set2 %>%
   summarise(n = n())
 
 head(DF2)
-
+dev.new()
 ggplot(DF2, aes(x =year_diagnosed, y = n, fill = PAM50)) + 
   geom_bar(stat = "identity")+
   scale_fill_manual(values=cbPalette)+
   theme_classic()+
   ylab("Count") + xlab("Year sample collected")+
-  ggtitle("Stacked barplot showing count of each PAM50 subtype \n collected in different years")+
+  ggtitle("Stacked barplots of sample counts collected in different years")+
   scale_y_continuous(expand = c(0, 0),breaks = seq(from = 0, by =25, to =250))+
   theme_classic()+
   theme(legend.position="bottom",
         axis.text.x = element_text(angle = 90, hjust = 1),
-        plot.title = element_text(hjust = 0.5))
+        plot.title = element_text(hjust = 0.5),
+        text=element_text(size=14,  family="serif"))
 
 
 
@@ -133,17 +135,19 @@ DF4 <- set4%>%
   summarise(n = n())
 
 head(DF4)
-
+dev.new()
 ggplot(DF4, aes(x =tumourStages, y = n, fill = PAM50)) + 
   geom_bar(stat = "identity")+
   scale_fill_manual(values=cbPalette)+
   theme_classic()+
-  ylab("Count") + xlab("Stage")+
-  ggtitle("Stacked barplot showing count of each \n PAM50 subtype in different cancer stages")+
+  ylab("Count") + xlab("")+
+  ggtitle("Stacked barplots of sample count per cancer stage")+
   scale_y_continuous(expand = c(0, 0),breaks = seq(from = 0, by =50, to =1000))+
-  theme(legend.position="bottom",
-        axis.text.x = element_text(angle = 45, hjust = 1),
-        plot.title = element_text(hjust = 0.5))
+  theme(legend.position="none",
+        axis.text.x = element_text(angle = 45, hjust = 1, size=16),
+        axis.text.y = element_text(size=16),
+        plot.title = element_text(hjust = 0.5),
+        text=element_text(size=16,  family="serif"))
 
 #or
 c <- ggplot(DF4, aes(x = tumourStages, y = variable))
@@ -165,17 +169,19 @@ DF5 <- set5%>%
   summarise(n = n())
 
 head(DF5)
-
+dev.new()
 ggplot(DF5, aes(x =tumourTypes, y = n, fill = PAM50)) + 
   geom_bar(stat = "identity")+
   scale_fill_manual(values=cbPalette)+
   theme_classic()+
-  ylab("Count") + xlab("Morphology")+
-  ggtitle("Stacked barplot showing count of each \n PAM50 subtype in different morphology groups")+
+  ylab("Count") + xlab("")+
+  ggtitle("Stacked barplots of sample count per morphology types")+
   scale_y_continuous(expand = c(0, 0),breaks = seq(from = 0, by =50, to =1000))+
   theme(legend.position="right",
-        axis.text.x = element_text(angle = 35, hjust = 1),
-        plot.title = element_text(hjust = 0.9))
+        axis.text.x = element_text(angle = 35, hjust = 1,size=16),
+        axis.text.y = element_text(size=16),
+        plot.title = element_text(hjust = 0.3),
+        text=element_text(size=16,  family="serif"))
 
 #or
 c <- ggplot(DF5, aes(x = tumourTypes, y = variable))

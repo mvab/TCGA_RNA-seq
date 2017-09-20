@@ -63,8 +63,8 @@ stage4downHER2<- as.vector(read.table("HER2enriched.stage4vsNorm_down.txt"))$V1
 autophagy_downreg_stage_PAM50 <- list(LuminalA= sharedWithAuto (stage4downLumA), 
                                       LuminalB= sharedWithAuto (stage4downLumB),
                                       BasalLike= sharedWithAuto(stage4downBasal),
-                                   HER2enriched= sharedWithAuto(stage4downHER2))
-                                   #NormalLike = sharedWithAuto (stage3downNormL))
+                                      HER2enriched= sharedWithAuto(stage4downHER2))
+                                    #NormalLike = sharedWithAuto (stage3downNormL))
 
 all_genes<-c()
 for (i in names(autophagy_downreg_stage_PAM50)){
@@ -81,22 +81,27 @@ venn <- venn.diagram(autophagy_downreg_stages,
              category.names = c("Stage 4", "Stage 3","Stage 2","Stage 1"),
              #category.names = c( "Stage 3","Stage 2","Stage 1"),
              filename = NULL, lwd = 0.5,
-             main = "Venn6: Downregulated authophagy genes\n in stages (Normal-like samples)", main.cex=1,
+             main = "Overlap of downregulated autophagy genes\n in stages of Basal-like subtype",
+             main.cex=1.2,
+             main.fontface = "bold",
+             
              col = "transparent", 
-             fill=c("cornflowerblue","green","yellow","darkorchid1"),
+             fill=c("cornflowerblue","green2","yellow","darkorchid1"),
              alpha =0.5,
              label.col = c("orange", "white", "darkorchid4", "white", "white", 
                            "white",    "white", "white", "darkblue", "white", "white", "white", "white", 
                            "darkgreen", "white"), 
              fontfamily = "serif",
              fontface = "bold",
+             cat.fontface = "bold",
              cat.col = c("darkblue", "darkgreen", "orange", "darkorchid4"), 
-             sub.cex = 1.5,
-             cat.cex=0.8,
-             cat.fontfamily = 'sans',
+             sub.cex = 2,
+             cat.cex=1.2,
+             cat.fontfamily = 'serif',
+            
              #rotation.degree = 270,
-             #margin = 0.1,
-             cex=1)
+             #margin = -0.02,
+             cex=1.3)
 
 
 grid.draw(venn)
@@ -143,45 +148,152 @@ ItemsList
 ################# Mfuzz results
 
 #load data
-setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_reproduced_final/")
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_reproduced_final/final_for_report")
 
 #all samples
-autogenes229_all_samp_all_genes_7clus<-as.vector(read.table("229_allgenes_allsamples_autophagy_down_cluster.txt", sep='\n'))$V1
-autogenes158_all_samp_group1_7clus<-as.vector(read.table("158_group1_allsamples_autophagy_down_cluster.txt", sep='\n'))$V1
-autogenes132_all_samp_group1_9clus<-as.vector(read.table("132_group1_allsamples_autophagy_down_cluster.txt", sep='\n'))$V1
-autogenes146_all_samp_group1_8clus<-as.vector(read.table("146_group1_allsamples_autophagy_down_cluster.txt", sep='\n'))$V1
+#autogenes229_all_samp_all_genes_7clus<-as.vector(read.table("229_allgenes_allsamples_autophagy_down_cluster.txt", sep='\n'))$V1
+#<-as.vector(read.table("158_group1_allsamples_autophagy_down_cluster.txt", sep='\n'))$V1
+#autogenes132_all_samp_group1_9clus<-as.vector(read.table("132_group1_allsamples_autophagy_down_cluster.txt", sep='\n'))$V1
+#autogenes146_all_samp_group1_8clus<-as.vector(read.table("146_group1_allsamples_autophagy_down_cluster.txt", sep='\n'))$V1
+#autogenes166_all_samp_group1_8clus<-as.vector(read.table("166_group1_logRPKMbatch_allsamples_autophagy_down_cluster.txt", sep='\n'))$V1
+
 
 #lumA
-autogenes_LumA_group1_8clus<-as.vector(read.table("138_group1_LumA_autophagy_down_cluster_notsign.txt", sep='\n'))$V1
-autogenes_LumB_group1_8clus<-as.vector(read.table("100_group1_LumB_autophagy_down_cluster_notsign.txt", sep='\n'))$V1
-autogenes_Basal_group1_8clus<-as.vector(read.table("100_group1_Basal_autophagy_down_cluster_notsign.txt", sep='\n'))$V1
-autogenes_HER2_group1_8clus<-as.vector(read.table("108_group1_HER2_autophagy_down_cluster_notsign.txt", sep='\n'))$V1
-autogenes_NormLike_group1_8clus<-as.vector(read.table( "24_group1_NormLike_autophagy_down_cluster_notsign.txt", sep='\n'))$V1
+#autogenes_LumA_group1_8clus<-as.vector(read.table("138_group1_LumA_autophagy_down_cluster_notsign.txt", sep='\n'))$V1
+#autogenes_LumB_group1_8clus<-as.vector(read.table("100_group1_LumB_autophagy_down_cluster_notsign.txt", sep='\n'))$V1
+#autogenes_Basal_group1_8clus<-as.vector(read.table("100_group1_Basal_autophagy_down_cluster_notsign.txt", sep='\n'))$V1
+#autogenes_HER2_group1_8clus<-as.vector(read.table("108_group1_HER2_autophagy_down_cluster_notsign.txt", sep='\n'))$V1
+#autogenes_NormLike_group1_8clus<-as.vector(read.table( "24_group1_NormLike_autophagy_down_cluster_notsign.txt", sep='\n'))$V1
+
+#autogenes_Ductal_group1_8clus<-as.vector(read.table( "135_group1_allsamples_Ductal_autophagy_down_cluster.txt", sep='\n'))$V1
+
+
+cluster_all<-as.vector(read.table("264_group1_15k6cl_logRPKMbatch_allsamples_autophagy_down_cluster.txt", sep="\n"))$V1
+cluster_basal<-as.vector(read.table("177_group1_15k6cl_logRPKMbatch_Basal_autophagy_down_cluster.txt", sep="\n"))$V1
+cluster_lumA<-as.vector(read.table("210_group1_15k6cl_logRPKMbatch_LumA_autophagy_down_cluster.txt", sep="\n"))$V1
+cluster_lumB<-as.vector(read.table("155_group1_15k6cl_logRPKMbatch_LumB1_autophagy_down_cluster.txt", sep="\n"))$V1
+cluster_HER2<-as.vector(read.table("133_group1_15k6cl_logRPKMbatch_HER2_autophagy_down_cluster.txt", sep="\n"))$V1
+cluster_normlike<-as.vector(read.table("59_group1_15k6cl_logRPKMbatch_normlike_autophagy_down_cluster.txt", sep="\n"))$V1
+
+
+test_list<- list(LuminalA= cluster_lumA,
+                 LuminalB= cluster_lumB,
+                 BasalLike=cluster_basal,
+                 HER2enriched=cluster_HER2,
+                 #all=cluster_all)
+                 NormalLike =cluster_normlike)
+
+# venn for 5
+##### THIS IS OK
+dev.off()
+venn <- venn.diagram(test_list[1:5], 
+                     #category.names = names(test_list)[1:5],
+                     category.names = c("Luminal A", "Luminal B", "Basal-like", "HER2-enriched", "Normal-like"),
+                     filename = NULL, lwd = 1,
+                     main = "Overlap of autophagy genes in downregulation clusters in PAM50 subtypes",
+                     main.cex=1.1,
+                     fill=c("cornflowerblue","green","yellow","darkorchid1", "turquoise"),
+                     
+                     label.col = c("darkblue", "darkgreen", "orange", "darkorchid4", "turquoise4",
+                                   "black" ,"black" ,"black" ,"black" ,"black", 
+                                   "black" ,"black" ,"black" ,"black","black" ,
+                                   "black", "black" ,"black" ,"black" ,"black",
+                                   "black" ,"black" ,"black" ,"black" ,"black" ,
+                                   "black" ,"black" ,"black" ,"black","black" ,"white"), 
+                     
+                     col = "transparent",
+                     alpha =0.5,
+                     label.cex = 1,
+                     cat.just=list(c(0.6,1) , c(0,-4) , c(1.2,-2) , c(1,1) , c(0.8,-3)),
+                     cat.cex=1.2, #group names
+                     cat.fontfamily = 'serif',
+                     fontfamily = "serif",
+                     fontface = "bold",
+                     main.fontface = "bold",
+                     cat.col = c("darkblue", "darkgreen", "orange", "darkorchid4", "turquoise4"), 
+                     sub.cex = 3, #my was 3
+                     cex=1.2)
+
+
+grid.draw(venn)
+dev.off()
+
+## other cols
+
+
+library(scales)
+source_cols<-c( "#F0E442", "orangered3", "#E69F00", "royalblue3",  "#CC79A7")
+show_col(source_cols)
+venn <- venn.diagram(test_list[1:5], 
+                     #category.names = names(test_list)[1:5],
+                     category.names = c("Luminal A", "Luminal B", "Basal-like", "HER2-enriched", "Normal-like"),
+                     filename = NULL, lwd = 1,
+                     main = "Overlap of autophagy genes in downregulation clusters in PAM50 subtypes",
+                     main.cex=1.1,
+                     fill=c("#F0E442", "orangered3", "#E69F00", "royalblue3",  "#CC79A7"),
+                     
+                     #label.col = c("goldenrod3", "orangered4", "darkorange3" ,"royalblue3",  "#CC79A7",
+                     #              "black" ,"black" ,"black" ,"black" ,"black", 
+                     #              "black" ,"black" ,"black" ,"black","black" ,
+                     #              "black", "black" ,"black" ,"black" ,"black",
+                     #              "black" ,"black" ,"black" ,"black" ,"black" ,
+                     #              "black" ,"black" ,"black" ,"black","black" ,"white"), 
+                     
+                     #col = "transparent",
+                     alpha =c(0.8,0.6,0.8,0.8,0.5),
+                     label.cex = 1,
+                     cat.just=list(c(0.6,1) , c(0,-4) , c(1.2,-2) , c(1,1) , c(0.8,-3)),
+                     cat.cex=1.2, #group names
+                     cat.fontfamily = 'serif',
+                     fontfamily = "serif",
+                     fontface = "bold",
+                     main.fontface = "bold",
+                     cat.col = c("goldenrod3", "orangered4", "darkorange3" ,"royalblue3",  "#CC79A7"), 
+                     sub.cex = 3, #my was 3
+                     cex=1.1)
+grid.draw(venn)
+dev.off()
+library(gplots)
+ItemsList_clusterdata <- venn(test_list, show.plot=F)
+ItemsList_clusterdata
+
+
+basal_unique<-c("PLBD2" ,  "OSBPL7" ,"OSBPL8" ,"LIPA"   ,"EEA1"    ,"RABEP1" , "DNM1"    ,"STAB1"  ,
+                "SNX9"  ,  "STON2"  ,"SYTL2"  ,"STX8"   ,"RAB14"   ,"PIK3C2G", "NEDD4"   ,"INPP4B" ,
+                 "RAB24" ,  "ANKFY1", "GCC2"  , "MLPH"  , "MYO5C"  , "SYTL4" ,  "ZFYVE27", "FIS1"   ,
+                 "SMCR7",   "WDFY3" , "CAPNS1", "PXN"   , "HSPB8"  , "BAD"   ,  "SREBF1" , "FOXA1"  ,
+                 "XBP1" ,   "FGFR1" , "FGF1"  , "NGFR"  , "ITGB3"  , "PRR5"  ,  "EGLN2"  , "TMEM127",
+                 "CTSO"  ,  "PRCP"  , "CD63"  , "EPDR1" , "TMEM192", "SPHK2" ,  "TMEM55B", "GNS"    ,
+                 "ARSD"  ,  "ARSG"  , "GALC"  , "BLOC1S1")
+
 
 
 
 test_list<- list(#genes229=autogenes229_all_samp_all_genes_7clus,
-                 all_samples=autogenes146_all_samp_group1_8clus,
+                 #all_samples=autogenes146_all_samp_group1_8clus,
+                 all_samples=autogenes166_all_samp_group1_8clus,
+                 #ductal=autogenes_Ductal_group1_8clus,
                  #genes158=autogenes158_all_samp_group1_7clus,
                  #genes132=autogenes132_all_samp_group1_9clus,
-                 LumA= autogenes_LumA_group1_8clus,
-                 LumB= autogenes_LumB_group1_8clus,
-                 Basal= autogenes_Basal_group1_8clus,
-                 HER2= autogenes_HER2_group1_8clus)
+                 #LumA= autogenes_LumA_group1_8clus,
+                 #LumB= autogenes_LumB_group1_8clus,
+                 #Basal= autogenes_Basal_group1_8clus,
+                 #HER2= autogenes_HER2_group1_8clus)
                  #NormLike= autogenes_NormLike_group1_8clus)
-                 #dea_genes=all_genes)
+                 dea_genes=all_genes)
 dev.off()
 venn <- venn.diagram(test_list, 
-       category.names = c("Autophagy genes in downreglated cluster\n from Group1 DE genes, Normal-like only",
-                          "Downregulated authopagy genes in all stages in Normal-like \n vs normal (Group1 model)"),
+                     category.names = names(test_list),
+      # category.names = c("Autophagy genes in downreglated cluster\n from Group1 DE genes, Normal-like only",
+       #                   "Downregulated authopagy genes in all stages in Normal-like \n vs normal (Group1 model)"),
        filename = NULL, lwd = 0.5,
-       main = "Normal-like", main.cex=1.5, main.pos = c(0.3,0.8),
+       main = NULL, main.cex=1.5, main.pos = c(0.3,0.8),
        fill=c("turquoise", "salmon"),# "blue", "purple"),
        col = "transparent",
        alpha =0.5,
        label.cex = 2,
        #cat.just=list(c(0,4) , c(1,8)), #LumA
-       cat.just=list(c(1.3,-4) , c(0,-1)), #LumB
+       #cat.just=list(c(1.3,-4) , c(0,-1)), #LumB
        sub.cex = 2,
        cat.cex=0.7, #group names
        cat.fontfamily = 'sans',
@@ -230,7 +342,7 @@ goids = getBM(
   
   #you want hgnc_symbol so you know which is what, the GO ID and
   # name_1006 is actually the identifier of 'Go term name'
-  attributes=c('hgnc_symbol', "go_id", "name_1006" ), 
+  attributes=c('hgnc_symbol', "description","name_1006" ,"go_id"), 
   
   filters='hgnc_symbol', 
   values=genes146, 
@@ -238,33 +350,17 @@ goids = getBM(
 
 head(goids)
 
-Go.collapsed<-Reduce(rbind,lapply(genes146, function(x)  tempo<-goids[goids$hgnc_symbol==x,]
-    data.frame('SYMBOL'= x,
-               'Go.ID'= paste(tempo$go_id,collapse=' ; '),
-               'GO.term'=paste(tempo$name_1006,collapse=' ; ')   
-               ) ))
-  
+library(dplyr)
+report = filter(goids, !go_id == "") %>%
+  group_by(hgnc_symbol) %>%
+  summarize(description = do.call(paste, c(as.list(description), sep=",")),
+            go_ids = do.call(paste, c(as.list(go_id), sep=",")),
+            go_names = do.call(paste, c(as.list(name_1006), sep=",")))
 
-# venn for 5
-dev.off()
-venn <- venn.diagram(test_list, 
-                     category.names = names(test_list),
-                     filename = NULL, lwd = 0.5,
-                     main = "Downregulated authophagy genes in  PAM50 subtype clusters", main.cex=1,
-                     fill=c("turquoise", "salmon", "blue", "yellow", "green"),
-                     col = "transparent",
-                     #label.col =c("grey"),
-                     alpha =0.5,
-                     label.cex = 1,
-                     cat.just=list(c(0.6,1) , c(0,-4) , c(1,0) , c(1,1) , c(0.8,-3)),
-                     sub.cex = 3,
-                     cat.cex=0.8, #group names
-                     cat.fontfamily = 'sans',
-                     cex=1)
-grid.draw(venn)
-dev.off()
-ItemsList <- venn(test_list, show.plot=F)
-ItemsList
+View(report)
+write.csv(report, file= "downreg_autophagy146_genelist.csv", col.names = TRUE, row.names = FALSE)
+
+
 
 gn11<-c("LPL"   ,   "LIPE"    , "ITSN1" ,   "STX11"  ,  "IQSEC3"  , "CAV2"  ,   "MAP1LC3C", "RHOQ"   ,  "ESR2" ,   
          "MRAS"    , "MARK1" )

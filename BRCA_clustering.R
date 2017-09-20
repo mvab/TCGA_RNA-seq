@@ -146,12 +146,16 @@ my_palette2<-c("#009E73",
 library(rafalib)
 mypar()
 
+windowsFonts(A = windowsFont("Times New Roman"))
 
 d <- dist( t(averages) )
 
 hc <- hclust(d)
 plot(hc,labels=as.vector(colnames(averages)),cex=0.5)
 dev.new()
+
 myplclust(hc, labels=as.vector(colnames(averages)), 
           lab.col=my_palette2,
-          cex=0.8, main="Clustering of PAM50 subtype and stages groups")
+          cex=0.8, main="Clustering of PAM50 subtype and stages groups", 
+          family="serif")
+

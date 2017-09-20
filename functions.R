@@ -68,24 +68,25 @@ renameMorph<- function(samples.matrix){
   
   for (i in 1:length(morph)){
     
-    if (is.na(morph[i])){
-      morph_renm[i]<-  "Normal" 
-    } else if (morph[i] == "unknown") {
-      morph_renm[i]<- "Other"  
-    } else if (morph[i] == "female_84803") {
-      morph_renm[i]<- "Mucinous adenocarcinoma"
-    } else if (morph[i] =="female_85003" ){
-      morph_renm[i]<- "Ductal carcinoma"
-    } else if  (morph[i] =="female_85203"){
-      morph_renm[i]<- "Lobular carcinoma"
-    } else if (morph[i] =="female_85233"){
-      morph_renm[i] <- "Ductual mixed with others"
-    } else if (morph[i] =="female_85223" ){
-      morph_renm[i]<- "Ductal and lobular mixed"  
-    } else if (morph[i] =="female_85753") {
-      morph_renm[i]<- "Metaplastic carcinoma"    
-    }  
-  }
+     if (is.na(morph[i])){
+       morph_renm[i]<-  "Normal" 
+     } else if (morph[i] == "unknown") {
+       morph_renm[i]<- "Other"  
+     } else if (morph[i] == "female_84803") {
+       morph_renm[i]<- "Mucinous carcinoma"
+     } else if (morph[i] =="female_85003" ){
+       morph_renm[i]<- "Ductal carcinoma"
+     } else if  (morph[i] =="female_85203"){
+       morph_renm[i]<- "Lobular carcinoma"
+     } else if (morph[i] =="female_85233"){
+       morph_renm[i] <- "Ductual mixed with others"
+     } else if (morph[i] =="female_85223" ){
+       morph_renm[i]<- "Ductal/lobular mixed"  
+     } else if (morph[i] =="female_85753") {
+       morph_renm[i]<- "Metaplastic carcinoma"    
+     }  
+   }
+
   #length(morph)
   #length(morph_renm)
   samples.matrix$tumourTypes<-morph_renm

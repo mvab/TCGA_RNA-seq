@@ -1,18 +1,14 @@
-setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_reproduced_final/")
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_reproduced_final/final_for_report/")
 source("../../functions.R") 
 # putting mfuzz cluster results into format for Enrichment analysis
 
 
-class <-"group1_allsamples_9clust"
-class <-"group1_allsamples_8clust"
-
-class<-"group1_NormLike_8clust"
-class<- "group1_allsamples_ductalONLY_8clust"
+class <-"rpkm_log_15k_6"
 
 #loading the data, e.g.
 data<-get(load(paste0(class, "_cluster_data.rda")))
 
-
+1 - 792, 2 - 1005, 3 - 796, 4 - 3224, 5 - 2889, 6 - 743.
 
 #explore dataset (run this loop)
 gene_sum=0
@@ -89,7 +85,7 @@ length(autophagyTF_genes)
 
 
 
-setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_reproduced_final/")
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/TCGAbiolinks/CBL_scripts/data/mfuzz_reproduced_final/final_for_report/")
 
 
 #all_samples_genesforDEA
@@ -105,7 +101,7 @@ autoALL_DEgenes<- get(load(paste0(class, "_DE_AUTO_genes_numbers3.rda")))
 autoCORE_DEgenes<- get(load(paste0(class, "_DE_AUTOCORE_genes_numbers3.rda")))
 autoTF_DEgenes<- get(load(paste0(class, "_DE_AUTOTF_genes_numbers3.rda")))
 
-N <- 10035 #12985 ##### THIS WILL CHANGE
+N <-15784# 10035 # #12985 ##### THIS WILL CHANGE
 
 # add columns for enrichment, p.val, p.val.adj in autophagy df
 extra_colnames<-c("oddsratio", 
@@ -145,25 +141,51 @@ fisher_test<-function(DEgenes,DEgenes_group,N,K){
 #ALL
 autoALL_DEgenes<-cbind(autoALL_DEgenes,matrix(data=NA, nrow=nrow(autoALL_DEgenes), ncol=3))
 names(autoALL_DEgenes)[2:4]<-extra_colnames
-K <- 595 #1001 # # The number of gene belonging to a gene famility---- AUTOPHAGY ALL
+K <- 1090#595 # #1001 # # The number of gene belonging to a gene famility---- AUTOPHAGY ALL
 autoALL_DEgenes<-fisher_test(DEgenes,autoALL_DEgenes,N,K);autoALL_DEgenes
 
 #CORE
 autoCORE_DEgenes<-cbind(autoCORE_DEgenes,matrix(data=NA, nrow=nrow(autoCORE_DEgenes), ncol=3))
 names(autoCORE_DEgenes)[2:4]<-extra_colnames
-K <-68#145 # # The number of gene belonging to a gene famility---- AUTOPHAGY CORE
+K <- 155#68## 145 # # The number of gene belonging to a gene famility---- AUTOPHAGY CORE
 autoCORE_DEgenes<-fisher_test(DEgenes,autoCORE_DEgenes,N,K);autoCORE_DEgenes
 
 
 #TF
 autoTF_DEgenes<-cbind(autoTF_DEgenes,matrix(data=NA, nrow=nrow(autoTF_DEgenes), ncol=3))
 names(autoTF_DEgenes)[2:4]<-extra_colnames
-K <- 57#85 # The number of gene belonging to a gene famility---- AUTOPHAGY TF
+K <- 97#57#85 # The number of gene belonging to a gene famility---- AUTOPHAGY TF
 autoTF_DEgenes<-fisher_test(DEgenes,autoTF_DEgenes,N,K);autoTF_DEgenes
 
 autoALL_DEgenes
 autoCORE_DEgenes
 autoTF_DEgenes
 
-write( sharedWithAuto(data$clusterx) , file = "135_group1_allsamples_Ductal_autophagy_down_cluster.txt", sep="\n")
 
+write( sharedWithAuto(data$cluster4) , file = "264_group1_15k6cl_logRPKMbatch_allsamples_autophagy_down_cluster.txt", sep="\n")
+write( sharedWithAuto(data$cluster4) , file = "177_group1_15k6cl_logRPKMbatch_Basal_autophagy_down_cluster.txt", sep="\n")
+write( sharedWithAuto(data$cluster4) , file = "210_group1_15k6cl_logRPKMbatch_LumA_autophagy_down_cluster.txt", sep="\n")
+write( sharedWithAuto(data$cluster3) , file = "155_group1_15k6cl_logRPKMbatch_LumB1_autophagy_down_cluster.txt", sep="\n")
+write( sharedWithAuto(data$cluster6) , file = "99_group1_15k6cl_logRPKMbatch_LumB2_autophagy_down_cluster.txt", sep="\n")
+write( sharedWithAuto(data$cluster2) , file = "133_group1_15k6cl_logRPKMbatch_HER2_autophagy_down_cluster.txt", sep="\n")
+write( sharedWithAuto(data$cluster3) , file = "59_group1_15k6cl_logRPKMbatch_normlike_autophagy_down_cluster.txt", sep="\n")
+
+
+
+
+
+
+
+genes264<-as.vector(read.table(file = "264_group1_15k6cl_logRPKMbatch_allsamples_autophagy_down_cluster.txt"))$V1
+genes177<-as.vector(read.table(file = "177_group1_15k6cl_logRPKMbatch_Basal_autophagy_down_cluster.txt"))$V1
+
+
+
+ItemsList <- venn(list(genes74=genes74,genes166=genes166), show.plot=T)
+
+sharedWithAuto(data$cluster4)->genes166
+
+
+
+library(gplots)
+ItemsList <- venn(list(genes146=genes146,genes136=genes136,genes166=genes166), show.plot=T)

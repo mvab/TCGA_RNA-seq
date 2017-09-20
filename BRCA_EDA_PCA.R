@@ -41,7 +41,7 @@ samples.matrix<-renameMorph(samples.matrix)
 samples.matrix<-addClinData(samples.matrix)
 
 #### extract data only for autophagy genes
-dataSE <- getAutophagyGenes(dataSE)
+#dataSE <- getAutophagyGenes(dataSE)
 
 
 # if used addPAM50 DO THIS:
@@ -117,7 +117,7 @@ samples.matrix$tumourTypes <- as.factor(samples.matrix$tumourTypes)
 ## palettes
 tnPalette=c("deeppink2", "dodgerblue2")
 cbPalette <- c( "#E69F00", "#0072B2", "#F0E442", "#D55E00",  "#009E73", "#CC79A7",   "#56B4E9", "black")
-tumourTypCol = c( "#F0E442", "#56B4E9", "#CC79A7", "#D55E00", "#0072B2", "#009E73", "#E69F00")
+tumourTypCol = c( "#56B4E9", "#F0E442", "#CC79A7", "#D55E00", "#0072B2", "#009E73", "#E69F00")
 tumourStagesCol = c( "#009E73", "#F0E442", "#E69F00", "#CC79A7", "red3")
 year_cols<-c("#3579b4", "#c8c049", "#8996da", "#ee5345", "#c84297",
              "#ac8d3c", "#50a376", "#9f6f63", "#36d1c8", "#a63dbd",
@@ -131,12 +131,68 @@ source_cols<-c("#fc8785", "#3cb777", "#575a6c", "#c390ec", "#c5eebd",
                "#349ad6", "#f2e5a9", "#43a405", "#f05017", "#f655f5",   
                "#01e034", "#3f7f56", "#016ecd", "#e2523f", "#b270e4")
 
-
+setwd("~/Bioinformatics MSc UCPH/0_MasterThesis/Report_LaTeX/images/")
 
 dim(dataSE)    
 dge <- DGEList(dataSE)
+
+#addSampleData<-function(y, samples.matrix) {
+  
+  # adding samples information
+  #y$samples$condition <- as.factor(samples.matrix$condition)
+  y$samples$PAM50 <- as.factor(samples.matrix$PAM50)
+  y$samples$morphology <- as.factor(samples.matrix$tumourTypes) # from sample lists!
+  y$samples$stages <- as.factor(samples.matrix$tumourStages) # from sample lists!
+  y$samples$year <- as.factor(samples.matrix$year_diagnosed)
+  y$samples$tss <- factor(samples.matrix$tss)
+  y$samples$age <- as.factor(samples.matrix$ageGroups)
+  
+  
+  #fixing NAs
+  y$samples$age <- as.character(y$samples$age)
+  y$samples[is.na(y$samples$age),]$age<-"UnknownAge"
+  y$samples[y$samples$age=="70+",]$age<-"70andUp"
+  y$samples[y$samples$age=="< 40",]$age<-"40andDown"
+  y$samples$age <- as.factor(y$samples$age)
+  
+  y$samples$year <- as.character(y$samples$year)
+  y$samples[is.na(y$samples$year),]$year<-"UnknownYear"
+  y$samples$year <- as.factor(y$samples$year)
+  
+  
+  #stage + PAM50
+  y$samples$Group1 <- factor(paste( gsub(" ", "", samples.matrix$PAM50) , samples.matrix$tumourStages,sep="."))
+  #morphology +stage
+  y$samples$Group2 <- factor(paste( gsub(" ", "", samples.matrix$tumourTypes) , samples.matrix$tumourStages,sep="."))
+  #pam50+morphology
+  y$samples$Group3 <- factor(paste( gsub(" ", "", samples.matrix$PAM50) , samples.matrix$tumourTypes,sep="."))
+  #pam50+age
+  y$samples$Group4 <- factor(paste( gsub(" ", "", samples.matrix$PAM50) , y$samples$age,sep="."))
+  
+  
+  
+  ## making normal the baselayer
+  #y$samples$condition = relevel(y$samples$condition, ref="normal")
+  y$samples$PAM50 = relevel(y$samples$PAM50, ref="Normal")
+  y$samples$morphology = relevel(y$samples$morphology, ref="Normal")
+  y$samples$stages = relevel(y$samples$stages, ref="Normal")
+  y$samples$age = relevel(y$samples$age, ref="40andDown") ###########--> should i make one for normal??
+  y$samples$Group1 = relevel(y$samples$Group1, ref = "Normal.Normal")
+  y$samples$Group2 = relevel(y$samples$Group2, ref = "Normal.Normal")
+  y$samples$Group3 = relevel(y$samples$Group3, ref = "Normal.Normal")
+  
+  return (y)
+}
+#dge<-addSampleData(dge,samples.matrix)
+
+
 dge <- calcNormFactors(object=dge, method="TMM")
 EM <- cpm(x=dge, log=TRUE)
+
+# if wanna see without batche effect
+#design <- model.matrix(~0+Group1, data=dge$samples)
+#EM <- removeBatchEffect(EM, batch=dge$samples$tss, design=design)
+
 
 # Perfrom PCA
 pca <- prcomp(x=t(EM), scale=TRUE, center=TRUE)
@@ -148,6 +204,8 @@ var[1:10]#check variance of first 10 components
 prop_varex <- var*100/sum(var)#proportion of variance explained
 prop_varex[1:10] # get varinces in percntages
 
+library(extrafont)
+loadfonts(device = "win")
 
 # Inspect components
 #summary(pca)
@@ -156,18 +214,20 @@ qplot(data=as.data.frame(pca$x), x=PC1, y=PC2, geom=c("point"), color=samples.ma
 
 dev.new()
 
-ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$PAM50))+ 
+ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$condition))+ 
   geom_point(size=2.1,alpha=0.9)+ #Size and alpha just for fun
   #scale_colour_brewer(palette = "Set2")+ #your colors 
-  scale_colour_manual(values=cbPalette)+
-  ggtitle("PCA plot of PAM50 subtypes and normal samples")+
+  scale_colour_manual(values=tnPalette)+
+  ggtitle("PCA plot of cancer and normal samples")+
   labs(x="PC1 (11.04%)", y="PC2 (8.63%)")+
   theme_classic(base_size = 12)+
   theme(#legend.position="bottom",
         legend.title=element_blank(),
-        plot.title = element_text(hjust = 0.1))
+        plot.title = element_text(hjust = 0.1),
+        text=element_text(size=14,  family="serif"))
 
 #morphology
+dev.new()
 ggplot(data=as.data.frame(pca$x),aes(x=PC3,y=PC2,col=samples.matrix$tumourTypes))+ 
   geom_point(size=2.1,alpha=1)+ #Size and alpha just for fun
   #scale_colour_brewer(palette = "Set2")+ #your colors 
@@ -177,7 +237,8 @@ ggplot(data=as.data.frame(pca$x),aes(x=PC3,y=PC2,col=samples.matrix$tumourTypes)
   theme_classic(base_size = 10)+
   theme(legend.position="bottom",
         legend.title=element_blank(),
-        plot.title = element_text(hjust = 0.6))
+        plot.title = element_text(hjust = 0.6),
+        text=element_text(size=14,  family="serif"))
 
 
 #stage
@@ -190,7 +251,8 @@ ggplot(data=as.data.frame(pca$x),aes(x=PC1,y=PC2,col=samples.matrix$tumourStages
   theme_classic(base_size = 10)+
   theme(legend.position="bottom",
         legend.title=element_blank(),
-        plot.title = element_text(hjust = 0.7))
+        plot.title = element_text(hjust = 0.7),
+        text=element_text(size=14,  family="serif"))
 
 
 #### 1D PCA PLOTS (final look!)
@@ -207,9 +269,10 @@ ggplot(p, aes(x=condition, y=score, fill=condition)) +
   ggtitle(" 1D PCA plot showing varince along PC1-PC9 \nfor cancer and normal samples")+
   labs(x=" ", y=" ")+
   #theme_minimal()+
-  theme(legend.position="bottom",
+  theme(#legend.position="bottom",
         legend.title=element_blank(),
-        plot.title = element_text(hjust = 0.5))
+        plot.title = element_text(hjust = 0.5),
+        text=element_text(size=14,  family="serif"))
 
 #PAM50
 d <- data.frame(samples.matrix, pca$x)
@@ -223,9 +286,11 @@ ggplot(p, aes(x=PAM50, y=score, fill=PAM50)) +
   theme(axis.text.x=element_blank(),
       axis.ticks.x=element_blank(),
       legend.title=element_blank(),
-      plot.title = element_text(hjust = 0.5))
+      plot.title = element_text(hjust = 0.5),
+      text=element_text(size=14,  family="serif"))
 
 
+dev.new()
 
 #tumour types 
 d <- data.frame(samples.matrix, pca$x)
@@ -237,12 +302,13 @@ ggplot(p, aes(x=tumourTypes, y=score, fill=tumourTypes)) +
   scale_fill_manual(values=tumourTypCol)+
   ggtitle("1D PCA plot showing varince along PC1-PC9 \nfor morphology groups and normal samples")+
   labs(x="Morphology")+
-  guides(fill=guide_legend(nrow=3))+
+  guides(fill=guide_legend(nrow=2))+
   theme(axis.text.x=element_blank(),
         axis.ticks.x=element_blank(),
         legend.title=element_blank(),
         legend.position="bottom",
-        plot.title = element_text(hjust = 0.5))
+        plot.title = element_text(hjust = 0.5),
+        text=element_text(size=14,  family="serif"))
 
 
 
@@ -251,6 +317,7 @@ ggplot(p, aes(x=tumourTypes, y=score, fill=tumourTypes)) +
 d <- data.frame(samples.matrix, pca$x)
 p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:9))
 
+dev.new()
 ggplot(p, aes(x=tumourStages, y=score, fill=tumourStages)) + 
   geom_boxplot(outlier.colour=NaN) + 
   facet_wrap(~PC) + 
@@ -261,33 +328,36 @@ ggplot(p, aes(x=tumourStages, y=score, fill=tumourStages)) +
         axis.ticks.x=element_blank(),
         legend.title=element_blank(),
         legend.position="bottom",
-        plot.title = element_text(hjust = 0.5))
+        plot.title = element_text(hjust = 0.5),
+        text=element_text(size=14,  family="serif"))
 
 
 #year taken
 d <- data.frame(samples.matrix, pca$x)
 p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:6))
 
+dev.new()
 ggplot(p, aes(x=year_diagnosed, y=score, fill=year_diagnosed)) + 
   geom_boxplot(outlier.colour=NaN) + 
   scale_fill_manual(values=year_cols)+
-  geom_jitter(alpha=0.3, aes(color=year_diagnosed)) +
+  geom_jitter(alpha=0.2, aes(color=year_diagnosed)) +
   scale_color_manual(values=year_cols)+
   facet_wrap(~PC) + 
   theme(legend.position="bottom",
         axis.text.x = element_text(angle = 90, hjust = 1, size=7))+
   guides(fill=guide_legend(nrow=3))+
-  ggtitle("1D PCA plot showing varince along PC1-PC6 \nfor years samples were taken")+
+  ggtitle("1D PCA plot showing varince along PC1-PC6 for years samples were taken")+
   labs(x="Year sample taken")+
   theme(legend.title=element_blank(),
-        plot.title = element_text(hjust = 0.5))
+        plot.title = element_text(hjust = 0.5),
+        text=element_text(size=14,  family="serif"))
 
 
 # source site
 names(samples.matrix)[19]<-'source_site'
 d <- data.frame(samples.matrix, pca$x)
 p <- d %>%  tbl_df %>%  gather(key="PC", value="score", contains("PC")) %>% filter(PC %in% paste0("PC", 1:6))
-
+dev.new()
 ggplot(p, aes(x=source_site, y=score, fill=source_site)) + 
   geom_boxplot(outlier.colour=NaN) + 
   scale_fill_manual(values=source_cols)+
@@ -297,10 +367,11 @@ ggplot(p, aes(x=source_site, y=score, fill=source_site)) +
   theme(legend.position="bottom",
         axis.text.x = element_text(angle =0, hjust = 0.5, size=5))+
   guides(fill=guide_legend(nrow=2))+
-  ggtitle("1D PCA plot showing varince along PC1-PC6 \nfor sample source site  (only cancer samples)")+
+  ggtitle("1D PCA plot showing varince along PC1-PC6 for sample source site ")+ # (only cancer samples)
   labs(x="Sample source site codes")+
   theme(legend.title=element_blank(),
-        plot.title = element_text(hjust = 0.5))
+        plot.title = element_text(hjust = 0.5),
+        text=element_text(size=14,  family="serif"))
 
 
 library(scales)
